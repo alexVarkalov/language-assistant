@@ -11,6 +11,8 @@ from telegram.ext import Application
 from vocab_bot.config import Settings
 from vocab_bot.db import Database
 from vocab_bot.handlers import due_poll, register_handlers
+from vocab_bot.repositories import CardRepository, PendingRepository
+from vocab_bot.services import ReviewService, TranslationService
 
 
 def _load_dotenv_if_present() -> None:
@@ -41,6 +43,10 @@ async def _post_init(application: Application) -> None:
     application.job_queue.scheduler.configure(timezone="UTC")
 
     settings: Settings = application.bot_data["settings"]
+    pending_repo = PendingRepository(db)
+    card_repo = CardRepository(db)
+    application.bot_data["translation_service"] = TranslationService(settings, pending_repo, card_repo)
+    application.bot_data["review_service"] = ReviewService(card_repo)
     application.job_queue.run_repeating(
         due_poll,
         interval=settings.due_poll_interval,

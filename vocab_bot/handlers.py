@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import html
 import logging
-import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
@@ -16,15 +15,10 @@ from telegram.ext import (
 )
 
 from vocab_bot.config import Settings
-from vocab_bot.db import Database, PendingTranslation
-from vocab_bot.srs import SrsState, next_review_datetime
-from vocab_bot.translate import TranslationError, translate_text
+from vocab_bot.services import ReviewService, TranslationService
+from vocab_bot.translate import TranslationError
 
 logger = logging.getLogger(__name__)
-
-
-def _now() -> datetime:
-    return datetime.now(tz=UTC)
 
 
 def _format_langs(settings: Settings) -> str:
@@ -50,7 +44,7 @@ async def on_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return
 
     settings: Settings = context.application.bot_data["settings"]
-    db: Database = context.application.bot_data["db"]
+    translation_service: TranslationService = context.application.bot_data["translation_service"]
     client = context.application.bot_data["http_client"]
 
     text = update.effective_message.text or ""
@@ -58,14 +52,8 @@ async def on_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return
 
     try:
-        translated = await translate_text(
-            text=text,
-            source_lang=settings.source_lang,
-            target_lang=settings.target_lang,
-            translator=settings.translator,
-            deepl_api_key=settings.deepl_api_key,
-            deepl_plan=settings.deepl_plan,
-            client=client,
+        pending = await translation_service.translate_and_store_pending(
+            user_id=update.effective_user.id, text=text, client=client
         )
     except TranslationError as exc:
         await update.effective_message.reply_text(f"Could not translate: {exc}")
@@ -75,26 +63,15 @@ async def on_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await update.effective_message.reply_text("Translation failed unexpectedly. Try again later.")
         return
 
-    pending_id = uuid.uuid4().hex
-    pending = PendingTranslation(
-        id=pending_id,
-        user_id=update.effective_user.id,
-        source_lang=settings.source_lang,
-        target_lang=settings.target_lang,
-        source_text=text.strip(),
-        target_text=translated,
-    )
-    await db.insert_pending(pending)
-
     src = html.escape(pending.source_text)
-    tgt = html.escape(translated)
+    tgt = html.escape(pending.target_text)
     pair = html.escape(_format_langs(settings))
 
     keyboard = InlineKeyboardMarkup(
         [
             [
-                InlineKeyboardButton("Save & learn", callback_data=f"save:{pending_id}"),
-                InlineKeyboardButton("Dismiss", callback_data=f"dismiss:{pending_id}"),
+                InlineKeyboardButton("Save & learn", callback_data=f"save:{pending.id}"),
+                InlineKeyboardButton("Dismiss", callback_data=f"dismiss:{pending.id}"),
             ]
         ]
     )
@@ -113,29 +90,18 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await query.answer()
 
     settings: Settings = context.application.bot_data["settings"]
-    db: Database = context.application.bot_data["db"]
+    translation_service: TranslationService = context.application.bot_data["translation_service"]
+    review_service: ReviewService = context.application.bot_data["review_service"]
 
     data = query.data
     if data.startswith("save:"):
         pending_id = data.removeprefix("save:")
-        pending = await db.get_pending(pending_id, update.effective_user.id)
+        pending = await translation_service.save_pending_as_card(
+            pending_id=pending_id, user_id=update.effective_user.id
+        )
         if pending is None:
             await query.edit_message_text("That suggestion expired. Send the word again.")
             return
-
-        first_review = _now() + timedelta(minutes=10)
-        await db.upsert_card(
-            user_id=pending.user_id,
-            source_lang=pending.source_lang,
-            target_lang=pending.target_lang,
-            source_text=pending.source_text,
-            target_text=pending.target_text,
-            ease_factor=2.5,
-            interval_days=0.0,
-            repetition=0,
-            next_review_at=first_review,
-        )
-        await db.delete_pending(pending_id, pending.user_id)
 
         await query.edit_message_text(
             f"Saved “{pending.source_text}” → “{pending.target_text}”. "
@@ -145,13 +111,13 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     if data.startswith("dismiss:"):
         pending_id = data.removeprefix("dismiss:")
-        await db.delete_pending(pending_id, update.effective_user.id)
+        await translation_service.dismiss_pending(pending_id=pending_id, user_id=update.effective_user.id)
         await query.edit_message_text("Okay — not saved.")
         return
 
     if data.startswith("reveal:"):
         card_id = int(data.removeprefix("reveal:"))
-        card = await db.get_card(card_id, update.effective_user.id)
+        card = await review_service.get_card_for_user(card_id=card_id, user_id=update.effective_user.id)
         if card is None:
             await query.edit_message_text("This review card no longer exists.")
             return
@@ -172,28 +138,17 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         _, card_id_raw, quality_raw = data.split(":", maxsplit=2)
         card_id = int(card_id_raw)
         quality = int(quality_raw)
-        card = await db.get_card(card_id, update.effective_user.id)
-        if card is None:
+        result = await review_service.apply_grade(card_id=card_id, user_id=update.effective_user.id, quality=quality)
+        if result is None:
             await query.edit_message_text("This review card no longer exists.")
             return
 
-        before = SrsState(card.ease_factor, card.interval_days, card.repetition)
-        when, after = next_review_datetime(before, quality, _now())
-
-        await db.update_card_srs(
-            card_id=card.id,
-            user_id=card.user_id,
-            ease_factor=after.ease_factor,
-            interval_days=after.interval_days,
-            repetition=after.repetition,
-            next_review_at=when,
-        )
-
-        human_when = when.astimezone(UTC).strftime("%Y-%m-%d %H:%M UTC")
+        human_when = result.next_review_at.astimezone(UTC).strftime("%Y-%m-%d %H:%M UTC")
         await query.edit_message_text(
             "Updated schedule.\n"
             f"Next review: <b>{html.escape(human_when)}</b>\n"
-            f"Repetitions: {after.repetition}, interval: {after.interval_days:.4f} days, EF: {after.ease_factor:.2f}",
+            "Repetitions: "
+            f"{result.repetition}, interval: {result.interval_days:.4f} days, EF: {result.ease_factor:.2f}",
             parse_mode="HTML",
         )
         return
@@ -212,11 +167,11 @@ def _grade_keyboard(card_id: int) -> InlineKeyboardMarkup:
 
 
 async def due_poll(context: ContextTypes.DEFAULT_TYPE) -> None:
-    db: Database = context.application.bot_data["db"]
+    review_service: ReviewService = context.application.bot_data["review_service"]
     settings: Settings = context.application.bot_data["settings"]
 
     try:
-        due = await db.list_due_cards(limit=50)
+        due = await review_service.list_due_cards(limit=50)
     except Exception:
         logger.exception("due poll: failed to list cards")
         return
@@ -246,7 +201,7 @@ async def due_poll(context: ContextTypes.DEFAULT_TYPE) -> None:
                     ]
                 ),
             )
-            await db.mark_awaiting(card.id, card.user_id, True)
+            await review_service.mark_awaiting(card_id=card.id, user_id=card.user_id, awaiting=True)
         except Exception:
             logger.exception("due poll: failed to notify user_id=%s card_id=%s", card.user_id, card.id)
 
