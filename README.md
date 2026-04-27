@@ -14,7 +14,7 @@ It translates incoming words (default: Polish -> Russian), lets you save them, a
 
 ## Tech stack
 
-- Python 3.11+
+- Python 3.14+
 - [`python-telegram-bot`](https://github.com/python-telegram-bot/python-telegram-bot)
 - [`httpx`](https://www.python-httpx.org/)
 - [`SQLAlchemy`](https://www.sqlalchemy.org/)
@@ -131,7 +131,7 @@ source "$HOME/.local/bin/env"
 cd /home/pi
 git clone <your-repo-url> language-assistant
 cd language-assistant
-uv venv .venv --python 3.11
+uv venv .venv --python 3.14
 uv sync --frozen
 ```
 
