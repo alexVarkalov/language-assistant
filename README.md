@@ -77,7 +77,7 @@ Environment variables:
 
 ## User access management
 
-The bot stores each Telegram user it sees in the PostgreSQL database. New users are allowed by default, and admins can switch access on or off with:
+The bot stores each Telegram user it sees in the PostgreSQL database. New users are blocked by default, and admins can switch access on or off with:
 
 - `/users`: show recently seen users and their Telegram IDs.
 - `/block_user <telegram_user_id>`: disable a user's access to translations, saves, reviews, and review reminders.
@@ -87,6 +87,173 @@ Users can set their timezone with `/timezone <iana_timezone>`, for example `/tim
 The bot stores this on the user record and uses it when showing review dates and times.
 
 Set `ADMIN_USER_IDS` to your Telegram user ID before using these commands.
+
+## Deploy on Raspberry Pi
+
+This section describes a production-style deployment on Raspberry Pi OS with:
+
+- `systemd` service for auto-start/restart
+- local PostgreSQL
+- project managed with `uv`
+
+The commands below assume:
+
+- user: `pi`
+- app dir: `/home/pi/language-assistant`
+- service name: `language-assistant-bot`
+
+Adjust paths/usernames if your setup differs.
+
+### 1) Prepare the Pi
+
+Update OS and install required packages:
+
+```bash
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y git curl ca-certificates postgresql postgresql-contrib
+```
+
+Install `uv`:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Reload shell so `uv` is available:
+
+```bash
+source "$HOME/.local/bin/env"
+```
+
+### 2) Clone project and install dependencies
+
+```bash
+cd /home/pi
+git clone <your-repo-url> language-assistant
+cd language-assistant
+uv sync --extra dev
+```
+
+### 3) Configure PostgreSQL
+
+Create DB user and DB for the bot:
+
+```bash
+sudo -u postgres psql -c "CREATE ROLE langbot WITH LOGIN PASSWORD 'change_me_strong_password';"
+sudo -u postgres psql -c "CREATE DATABASE language_assistant OWNER langbot;"
+```
+
+Optional: test connectivity:
+
+```bash
+psql "postgresql://langbot:change_me_strong_password@localhost:5432/language_assistant" -c "SELECT 1;"
+```
+
+### 4) Configure environment
+
+Create `.env` in repo root:
+
+```env
+BOT_TOKEN=your_telegram_bot_token
+TRANSLATOR=deepl
+DEEPL_API_KEY=your_deepl_key
+DEEPL_PLAN=free
+
+SOURCE_LANG=PL
+TARGET_LANG=RU
+AVAILABLE_LANGUAGES=EN,RU,PL
+
+DATABASE_URL=postgresql+psycopg://langbot:change_me_strong_password@localhost:5432/language_assistant
+DUE_POLL_INTERVAL=45
+ADMIN_USER_IDS=123456789
+```
+
+Find your Telegram user ID (for `ADMIN_USER_IDS`) via bots like `@userinfobot`.
+
+### 5) First run (manual check)
+
+Before creating a service, verify the bot starts:
+
+```bash
+cd /home/pi/language-assistant
+uv run vocab-bot
+```
+
+Stop it with `Ctrl+C` after confirming no startup errors.
+
+### 6) Create systemd service
+
+Create service file:
+
+```bash
+sudo tee /etc/systemd/system/language-assistant-bot.service >/dev/null <<'EOF'
+[Unit]
+Description=Language Assistant Telegram Bot
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/language-assistant
+Environment=PATH=/home/pi/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/home/pi/.local/bin/uv run vocab-bot
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+```
+
+Enable and start:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now language-assistant-bot
+```
+
+### 7) Operate and monitor
+
+Check status:
+
+```bash
+sudo systemctl status language-assistant-bot
+```
+
+Follow logs:
+
+```bash
+journalctl -u language-assistant-bot -f
+```
+
+Restart service:
+
+```bash
+sudo systemctl restart language-assistant-bot
+```
+
+### 8) Update deployment
+
+When you push new code:
+
+```bash
+cd /home/pi/language-assistant
+git pull
+uv sync --extra dev
+sudo systemctl restart language-assistant-bot
+```
+
+### 9) Common issues
+
+- **`FATAL: role ... does not exist`**
+  - `DATABASE_URL` points to a PostgreSQL user that is not created.
+- **`password authentication failed`**
+  - user/password in `DATABASE_URL` does not match Postgres role credentials.
+- **Bot starts but does nothing**
+  - check `BOT_TOKEN`, then inspect logs with `journalctl -u language-assistant-bot -f`.
+- **`DEEPL_API_KEY is required`**
+  - add `DEEPL_API_KEY` in `.env` and restart service.
 
 ## Development
 
