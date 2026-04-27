@@ -21,7 +21,7 @@ class UserRecord(Base):
     timezone: Mapped[str | None] = mapped_column(String, nullable=True)
     preferred_source_lang: Mapped[str | None] = mapped_column(String, nullable=True)
     preferred_target_lang: Mapped[str | None] = mapped_column(String, nullable=True)
-    is_allowed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    is_allowed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

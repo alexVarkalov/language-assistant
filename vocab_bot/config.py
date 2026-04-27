@@ -13,7 +13,7 @@ class Settings:
     source_lang: str
     target_lang: str
     available_languages: frozenset[str]
-    database_path: str
+    database_url: str
     due_poll_interval: int
     admin_user_ids: frozenset[int]
 
@@ -48,6 +48,13 @@ class Settings:
         available_languages = _parse_languages(os.environ.get("AVAILABLE_LANGUAGES", "EN,RU,PL"))
         available_languages = frozenset(set(available_languages) | {source_lang, target_lang})
         admin_user_ids = _parse_user_ids(os.environ.get("ADMIN_USER_IDS", ""))
+        database_url = os.environ.get(
+            "DATABASE_URL",
+            "postgresql+psycopg://postgres:postgres@localhost:5432/language_assistant",
+        ).strip()
+        if not database_url:
+            msg = "DATABASE_URL is required"
+            raise ValueError(msg)
 
         return cls(
             bot_token=token,
@@ -57,7 +64,7 @@ class Settings:
             source_lang=source_lang,
             target_lang=target_lang,
             available_languages=available_languages,
-            database_path=os.environ.get("DATABASE_PATH", "./data/vocab.sqlite").strip(),
+            database_url=database_url,
             due_poll_interval=due_poll_interval,
             admin_user_ids=admin_user_ids,
         )

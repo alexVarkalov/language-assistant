@@ -29,7 +29,7 @@ class UserService:
 
     async def is_allowed(self, telegram_id: int) -> bool:
         user = await self._user_repo.get(telegram_id)
-        return True if user is None else user.is_allowed
+        return False if user is None else user.is_allowed
 
     async def set_allowed(self, telegram_id: int, allowed: bool) -> BotUser:
         return await self._user_repo.set_allowed(telegram_id, allowed)

@@ -10,7 +10,7 @@ It translates incoming words (default: Polish -> Russian), lets you save them, a
 - Show multiple translation options and save the chosen one
 - Background due-card polling and review prompts
 - Self-grading flow (`Again`, `Good`, `Easy`)
-- SQLite persistence via SQLAlchemy ORM
+- PostgreSQL persistence via SQLAlchemy ORM
 
 ## Tech stack
 
@@ -36,7 +36,7 @@ TRANSLATOR=deepl
 SOURCE_LANG=PL
 TARGET_LANG=RU
 AVAILABLE_LANGUAGES=EN,RU,PL
-DATABASE_PATH=./data/vocab.sqlite
+DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/language_assistant
 DUE_POLL_INTERVAL=45
 ADMIN_USER_IDS=123456789
 ```
@@ -58,7 +58,7 @@ Environment variables:
 - `SOURCE_LANG` (optional): source language code. Default: `PL`.
 - `TARGET_LANG` (optional): target language code. Default: `RU`.
 - `AVAILABLE_LANGUAGES` (optional): comma-separated language codes users can choose from. Default: `EN,RU,PL`.
-- `DATABASE_PATH` (optional): SQLite DB file path. Default: `./data/vocab.sqlite`.
+- `DATABASE_URL` (optional): PostgreSQL SQLAlchemy URL. Default: `postgresql+psycopg://postgres:postgres@localhost:5432/language_assistant`.
 - `DUE_POLL_INTERVAL` (optional): polling interval in seconds (minimum 15). Default: `45`.
 - `ADMIN_USER_IDS` (optional): comma-separated Telegram user IDs allowed to manage user access.
 
@@ -77,7 +77,7 @@ Environment variables:
 
 ## User access management
 
-The bot stores each Telegram user it sees in the SQLite database. New users are allowed by default, and admins can switch access on or off with:
+The bot stores each Telegram user it sees in the PostgreSQL database. New users are allowed by default, and admins can switch access on or off with:
 
 - `/users`: show recently seen users and their Telegram IDs.
 - `/block_user <telegram_user_id>`: disable a user's access to translations, saves, reviews, and review reminders.

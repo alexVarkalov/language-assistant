@@ -4,7 +4,7 @@ import asyncio
 from datetime import UTC, datetime
 
 from sqlalchemy import select
-from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from vocab_bot.persistence.models import CardRecord
 from vocab_bot.persistence.types import Card
@@ -50,7 +50,7 @@ class CardStore:
         next_review_at: datetime,
     ) -> int:
         with self._session_factory() as session:
-            stmt = sqlite_insert(CardRecord).values(
+            stmt = pg_insert(CardRecord).values(
                 user_id=user_id,
                 source_lang=source_lang,
                 target_lang=target_lang,
@@ -60,7 +60,7 @@ class CardStore:
                 interval_days=interval_days,
                 repetition=repetition,
                 next_review_at=next_review_at.astimezone(UTC).replace(microsecond=0),
-                awaiting_grade=0,
+                awaiting_grade=False,
                 created_at=utc_now(),
             )
             stmt = stmt.on_conflict_do_update(
@@ -71,7 +71,7 @@ class CardStore:
                     "interval_days": stmt.excluded.interval_days,
                     "repetition": stmt.excluded.repetition,
                     "next_review_at": stmt.excluded.next_review_at,
-                    "awaiting_grade": 0,
+                    "awaiting_grade": False,
                 },
             )
             session.execute(stmt)
@@ -104,7 +104,7 @@ class CardStore:
         with self._session_factory() as session:
             rows = session.scalars(
                 select(CardRecord)
-                .where(CardRecord.awaiting_grade == 0, CardRecord.next_review_at <= utc_now())
+                .where(CardRecord.awaiting_grade.is_(False), CardRecord.next_review_at <= utc_now())
                 .order_by(CardRecord.next_review_at.asc())
                 .limit(limit)
             ).all()

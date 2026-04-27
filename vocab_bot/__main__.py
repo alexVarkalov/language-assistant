@@ -82,7 +82,7 @@ def main() -> None:
     )
 
     application.bot_data["settings"] = settings
-    application.bot_data["db"] = Database(settings.database_path)
+    application.bot_data["db"] = Database(settings.database_url)
 
     register_handlers(application)
     application.run_polling(allowed_updates=Update.ALL_TYPES)

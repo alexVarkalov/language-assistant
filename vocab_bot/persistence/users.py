@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 
 from sqlalchemy import select
-from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from vocab_bot.persistence.models import UserRecord
 from vocab_bot.persistence.types import BotUser
@@ -39,13 +39,13 @@ class UserStore:
     ) -> BotUser:
         now = utc_now()
         with self._session_factory() as session:
-            stmt = sqlite_insert(UserRecord).values(
+            stmt = pg_insert(UserRecord).values(
                 telegram_id=telegram_id,
                 username=username,
                 first_name=first_name,
                 last_name=last_name,
                 language_code=language_code,
-                is_allowed=True,
+                is_allowed=False,
                 created_at=now,
                 updated_at=now,
                 last_seen_at=now,
@@ -110,7 +110,7 @@ class UserStore:
                 record = UserRecord(
                     telegram_id=telegram_id,
                     timezone=timezone,
-                    is_allowed=True,
+                    is_allowed=False,
                     created_at=now,
                     updated_at=now,
                     last_seen_at=now,
@@ -134,7 +134,7 @@ class UserStore:
                     telegram_id=telegram_id,
                     preferred_source_lang=source_lang,
                     preferred_target_lang=target_lang,
-                    is_allowed=True,
+                    is_allowed=False,
                     created_at=now,
                     updated_at=now,
                     last_seen_at=now,
