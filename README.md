@@ -125,14 +125,17 @@ Reload shell so `uv` is available:
 source "$HOME/.local/bin/env"
 ```
 
-### 2) Clone project and install dependencies
+### 2) Clone project and create a dedicated environment
 
 ```bash
 cd /home/pi
 git clone <your-repo-url> language-assistant
 cd language-assistant
-uv sync --extra dev
+uv venv .venv --python 3.11
+uv sync --frozen
 ```
+
+This creates an isolated virtual environment for this project at `/home/pi/language-assistant/.venv`.
 
 ### 3) Configure PostgreSQL
 
@@ -172,11 +175,12 @@ Find your Telegram user ID (for `ADMIN_USER_IDS`) via bots like `@userinfobot`.
 
 ### 5) First run (manual check)
 
-Before creating a service, verify the bot starts:
+Before creating a service, verify the bot starts from the dedicated environment:
 
 ```bash
 cd /home/pi/language-assistant
-uv run vocab-bot
+source .venv/bin/activate
+python -m vocab_bot
 ```
 
 Stop it with `Ctrl+C` after confirming no startup errors.
@@ -196,8 +200,8 @@ Wants=network-online.target
 Type=simple
 User=pi
 WorkingDirectory=/home/pi/language-assistant
-Environment=PATH=/home/pi/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-ExecStart=/home/pi/.local/bin/uv run vocab-bot
+EnvironmentFile=/home/pi/language-assistant/.env
+ExecStart=/home/pi/language-assistant/.venv/bin/python -m vocab_bot
 Restart=always
 RestartSec=5
 
@@ -239,8 +243,8 @@ When you push new code:
 
 ```bash
 cd /home/pi/language-assistant
-git pull
-uv sync --extra dev
+git pull origin main
+uv sync --frozen
 sudo systemctl restart language-assistant-bot
 ```
 
@@ -254,6 +258,8 @@ sudo systemctl restart language-assistant-bot
   - check `BOT_TOKEN`, then inspect logs with `journalctl -u language-assistant-bot -f`.
 - **`DEEPL_API_KEY is required`**
   - add `DEEPL_API_KEY` in `.env` and restart service.
+- **`psycopg-binary ... doesn't have a source distribution or wheel for ... armv7l`**
+  - use `psycopg` (not `psycopg[binary]`) in project dependencies, then run `uv lock` and redeploy.
 
 ## Development
 
