@@ -36,11 +36,12 @@ class Settings:
         if deepl_plan not in {"auto", "free", "pro"}:
             deepl_plan = "free"
 
-        translator = os.environ.get("TRANSLATOR", "mymemory").strip().lower()
-        if translator not in {"deepl", "mymemory"}:
-            translator = "mymemory"
-        if translator == "deepl" and not deepl:
-            translator = "mymemory"
+        translator = os.environ.get("TRANSLATOR", "deepl").strip().lower()
+        if translator != "deepl":
+            translator = "deepl"
+        if not deepl:
+            msg = "DEEPL_API_KEY is required (MyMemory is disabled)"
+            raise ValueError(msg)
 
         source_lang = os.environ.get("SOURCE_LANG", "PL").strip().upper()
         target_lang = os.environ.get("TARGET_LANG", "RU").strip().upper()

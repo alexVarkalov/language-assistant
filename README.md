@@ -6,9 +6,7 @@ It translates incoming words (default: Polish -> Russian), lets you save them, a
 
 ## Features
 
-- Translate text with either:
-  - `mymemory` (default, no API key required)
-  - `deepl` (optional, via `DEEPL_API_KEY`)
+- Translate text with DeepL (`DEEPL_API_KEY` required)
 - Show multiple translation options and save the chosen one
 - Background due-card polling and review prompts
 - Self-grading flow (`Again`, `Good`, `Easy`)
@@ -34,7 +32,7 @@ uv sync --extra dev
 
 ```env
 BOT_TOKEN=your_telegram_bot_token
-TRANSLATOR=mymemory
+TRANSLATOR=deepl
 SOURCE_LANG=PL
 TARGET_LANG=RU
 AVAILABLE_LANGUAGES=EN,RU,PL
@@ -54,8 +52,8 @@ uv run vocab-bot
 Environment variables:
 
 - `BOT_TOKEN` (required): Telegram bot token.
-- `TRANSLATOR` (optional): `mymemory` or `deepl`. Default: `mymemory`.
-- `DEEPL_API_KEY` (optional): required if `TRANSLATOR=deepl`.
+- `TRANSLATOR` (optional): currently only `deepl` is supported. Default: `deepl`.
+- `DEEPL_API_KEY` (required): DeepL API key.
 - `DEEPL_PLAN` (optional): `auto`, `free`, or `pro`. Default: `free`.
 - `SOURCE_LANG` (optional): source language code. Default: `PL`.
 - `TARGET_LANG` (optional): target language code. Default: `RU`.
@@ -157,6 +155,6 @@ git commit
 - `vocab_bot/services/`: bot business logic services
 - `vocab_bot/repositories/`: repository layer over DB methods
 - `vocab_bot/persistence/`: ORM models, datatypes, and DB store mixins
-- `vocab_bot/translate.py`: translation providers (MyMemory, DeepL)
+- `vocab_bot/translate.py`: translation provider (DeepL)
 - `vocab_bot/srs.py`: SM-2 style scheduling logic
 - `vocab_bot/db.py`: database facade and lifecycle

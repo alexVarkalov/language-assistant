@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from urllib.parse import quote
 
 import httpx
 
@@ -49,24 +48,16 @@ async def translate_text_options(
     if not trimmed:
         raise TranslationError("empty text")
 
-    if translator == "deepl" and deepl_api_key:
-        primary = await _deepl_options(
-            trimmed,
-            source_lang,
-            target_lang,
-            deepl_api_key,
-            client,
-            plan=deepl_plan,
-        )
-        if len(primary) >= MAX_TRANSLATION_OPTIONS:
-            return primary
-        # DeepL often returns one best option; enrich with MyMemory candidates.
-        try:
-            secondary = await _mymemory_options(trimmed, source_lang, target_lang, client)
-        except (TranslationError, httpx.HTTPError):
-            return primary
-        return _merge_options(primary, secondary)
-    return await _mymemory_options(trimmed, source_lang, target_lang, client)
+    if translator != "deepl" or not deepl_api_key:
+        raise TranslationError("DeepL translator is required and must be configured")
+    return await _deepl_options(
+        trimmed,
+        source_lang,
+        target_lang,
+        deepl_api_key,
+        client,
+        plan=deepl_plan,
+    )
 
 
 DEEPL_FREE_URL = "https://api-free.deepl.com/v2/translate"
@@ -178,31 +169,6 @@ async def _deepl_options(
     raise TranslationError(msg)
 
 
-async def _mymemory_options(text: str, source_lang: str, target_lang: str, client: httpx.AsyncClient) -> list[str]:
-    pair = f"{source_lang.lower()}|{target_lang.lower()}"
-    url = f"https://api.mymemory.translated.net/get?q={quote(text)}&langpair={pair}"
-    response = await client.get(url, timeout=20.0)
-    response.raise_for_status()
-    payload = response.json()
-    if payload.get("responseStatus", 200) != 200:
-        msg = payload.get("responseDetails") or "mymemory error"
-        raise TranslationError(str(msg))
-    raw_options: list[str] = []
-    translated = str(payload.get("responseData", {}).get("translatedText", "")).strip()
-    if translated:
-        raw_options.append(translated)
-
-    for match in payload.get("matches", []):
-        candidate = str(match.get("translation", "")).strip()
-        if candidate:
-            raw_options.append(candidate)
-
-    options = _normalize_options(raw_options)
-    if not options:
-        raise TranslationError("empty translation from MyMemory")
-    return options
-
-
 def _normalize_options(values: list[str]) -> list[str]:
     seen: set[str] = set()
     result: list[str] = []
@@ -218,7 +184,3 @@ def _normalize_options(values: list[str]) -> list[str]:
         if len(result) >= MAX_TRANSLATION_OPTIONS:
             break
     return result
-
-
-def _merge_options(primary: list[str], secondary: list[str]) -> list[str]:
-    return _normalize_options([*primary, *secondary])
