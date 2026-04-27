@@ -12,8 +12,10 @@ class Settings:
     translator: str
     source_lang: str
     target_lang: str
+    available_languages: frozenset[str]
     database_path: str
     due_poll_interval: int
+    admin_user_ids: frozenset[int]
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -40,13 +42,46 @@ class Settings:
         if translator == "deepl" and not deepl:
             translator = "mymemory"
 
+        source_lang = os.environ.get("SOURCE_LANG", "PL").strip().upper()
+        target_lang = os.environ.get("TARGET_LANG", "RU").strip().upper()
+        available_languages = _parse_languages(os.environ.get("AVAILABLE_LANGUAGES", "EN,RU,PL"))
+        available_languages = frozenset(set(available_languages) | {source_lang, target_lang})
+        admin_user_ids = _parse_user_ids(os.environ.get("ADMIN_USER_IDS", ""))
+
         return cls(
             bot_token=token,
             deepl_api_key=deepl,
             deepl_plan=deepl_plan,
             translator=translator,
-            source_lang=os.environ.get("SOURCE_LANG", "PL").strip().upper(),
-            target_lang=os.environ.get("TARGET_LANG", "RU").strip().upper(),
+            source_lang=source_lang,
+            target_lang=target_lang,
+            available_languages=available_languages,
             database_path=os.environ.get("DATABASE_PATH", "./data/vocab.sqlite").strip(),
             due_poll_interval=due_poll_interval,
+            admin_user_ids=admin_user_ids,
         )
+
+
+def _parse_user_ids(raw: str) -> frozenset[int]:
+    ids: set[int] = set()
+    for part in raw.replace(";", ",").split(","):
+        value = part.strip()
+        if not value:
+            continue
+        try:
+            ids.add(int(value))
+        except ValueError:
+            continue
+    return frozenset(ids)
+
+
+def _parse_languages(raw: str) -> frozenset[str]:
+    codes: set[str] = set()
+    for part in raw.replace(";", ",").split(","):
+        code = part.strip().upper()
+        if not code:
+            continue
+        codes.add(code)
+    if not codes:
+        return frozenset({"EN", "RU", "PL"})
+    return frozenset(codes)

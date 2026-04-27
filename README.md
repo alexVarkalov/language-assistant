@@ -9,7 +9,7 @@ It translates incoming words (default: Polish -> Russian), lets you save them, a
 - Translate text with either:
   - `mymemory` (default, no API key required)
   - `deepl` (optional, via `DEEPL_API_KEY`)
-- Save translated pairs as cards
+- Show multiple translation options and save the chosen one
 - Background due-card polling and review prompts
 - Self-grading flow (`Again`, `Good`, `Easy`)
 - SQLite persistence via SQLAlchemy ORM
@@ -37,8 +37,10 @@ BOT_TOKEN=your_telegram_bot_token
 TRANSLATOR=mymemory
 SOURCE_LANG=PL
 TARGET_LANG=RU
+AVAILABLE_LANGUAGES=EN,RU,PL
 DATABASE_PATH=./data/vocab.sqlite
 DUE_POLL_INTERVAL=45
+ADMIN_USER_IDS=123456789
 ```
 
 3. Run the bot:
@@ -57,12 +59,16 @@ Environment variables:
 - `DEEPL_PLAN` (optional): `auto`, `free`, or `pro`. Default: `free`.
 - `SOURCE_LANG` (optional): source language code. Default: `PL`.
 - `TARGET_LANG` (optional): target language code. Default: `RU`.
+- `AVAILABLE_LANGUAGES` (optional): comma-separated language codes users can choose from. Default: `EN,RU,PL`.
 - `DATABASE_PATH` (optional): SQLite DB file path. Default: `./data/vocab.sqlite`.
 - `DUE_POLL_INTERVAL` (optional): polling interval in seconds (minimum 15). Default: `45`.
+- `ADMIN_USER_IDS` (optional): comma-separated Telegram user IDs allowed to manage user access.
 
 ## Bot usage
 
 - Send `/start` to see instructions.
+- Send `/languages EN RU` (or `/langs EN RU`) to set your source/target languages.
+- Send `/timezone Europe/Warsaw` to set your local timezone for review times.
 - Send a word/phrase in the source language.
 - Click `Save & learn` to create/update a card.
 - When review time comes, the bot sends a prompt.
@@ -70,6 +76,19 @@ Environment variables:
   - `Again` -> reset progress for that card
   - `Good` -> standard interval growth
   - `Easy` -> larger ease factor / spacing
+
+## User access management
+
+The bot stores each Telegram user it sees in the SQLite database. New users are allowed by default, and admins can switch access on or off with:
+
+- `/users`: show recently seen users and their Telegram IDs.
+- `/block_user <telegram_user_id>`: disable a user's access to translations, saves, reviews, and review reminders.
+- `/allow_user <telegram_user_id>`: enable access again.
+
+Users can set their timezone with `/timezone <iana_timezone>`, for example `/timezone Europe/Warsaw`.
+The bot stores this on the user record and uses it when showing review dates and times.
+
+Set `ADMIN_USER_IDS` to your Telegram user ID before using these commands.
 
 ## Development
 
@@ -134,7 +153,10 @@ git commit
 
 - `vocab_bot/__main__.py`: app bootstrap and scheduler setup
 - `vocab_bot/config.py`: environment-driven settings
-- `vocab_bot/handlers.py`: Telegram command/message/callback handlers
+- `vocab_bot/handlers/`: Telegram command/message/callback handlers
+- `vocab_bot/services/`: bot business logic services
+- `vocab_bot/repositories/`: repository layer over DB methods
+- `vocab_bot/persistence/`: ORM models, datatypes, and DB store mixins
 - `vocab_bot/translate.py`: translation providers (MyMemory, DeepL)
 - `vocab_bot/srs.py`: SM-2 style scheduling logic
-- `vocab_bot/db.py`: SQLAlchemy ORM models and DB operations
+- `vocab_bot/db.py`: database facade and lifecycle
