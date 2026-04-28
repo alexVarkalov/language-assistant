@@ -5,6 +5,7 @@ from vocab_bot.handlers.commands import (
     cmd_allow_user,
     cmd_block_user,
     cmd_languages,
+    cmd_locale,
     cmd_start,
     cmd_timezone,
     cmd_users,
@@ -19,6 +20,8 @@ def register_handlers(application: Application) -> None:
     application.add_handler(CommandHandler("start", cmd_start))
     application.add_handler(CommandHandler("languages", cmd_languages))
     application.add_handler(CommandHandler("langs", cmd_languages))
+    application.add_handler(CommandHandler("locale", cmd_locale))
+    application.add_handler(CommandHandler("localization", cmd_locale))
     application.add_handler(CommandHandler("timezone", cmd_timezone))
     application.add_handler(CommandHandler("tz", cmd_timezone))
     application.add_handler(CommandHandler("users", cmd_users))

@@ -7,10 +7,9 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from vocab_bot.config import Settings
+from vocab_bot.i18n import DEFAULT_LOCALE, resolve_user_locale, t
 from vocab_bot.persistence import BotUser
 from vocab_bot.services import UserService
-
-ACCESS_DISABLED_MESSAGE = "Your access to this bot is disabled. Contact the bot administrator if this looks wrong."
 
 
 def format_langs(source_lang: str, target_lang: str) -> str:
@@ -60,16 +59,21 @@ def user_has_access(user: BotUser, settings: Settings) -> bool:
     return user.is_allowed or user.telegram_id in settings.admin_user_ids
 
 
+def user_locale(user: BotUser) -> str:
+    return resolve_user_locale(user)
+
+
 async def require_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     if update.effective_user is None or update.effective_message is None:
         return False
 
-    await record_user_seen(update, context)
+    user = await record_user_seen(update, context)
     settings: Settings = context.application.bot_data["settings"]
     if update.effective_user.id in settings.admin_user_ids:
         return True
 
-    await update.effective_message.reply_text("This command is only available to bot admins.")
+    locale = resolve_user_locale(user) if user is not None else DEFAULT_LOCALE
+    await update.effective_message.reply_text(t(locale, "admin_only"))
     return False
 
 

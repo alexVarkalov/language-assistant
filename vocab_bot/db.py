@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from contextlib import asynccontextmanager
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -31,6 +31,8 @@ class Database(UserStore, PendingStore, CardStore):
 
     def _init_sync(self) -> None:
         Base.metadata.create_all(self._engine)
+        with self._engine.begin() as conn:
+            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS preferred_locale VARCHAR"))
 
 
 @asynccontextmanager

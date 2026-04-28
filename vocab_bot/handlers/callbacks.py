@@ -8,12 +8,13 @@ from telegram.ext import ContextTypes
 
 from vocab_bot.config import Settings
 from vocab_bot.handlers.common import (
-    ACCESS_DISABLED_MESSAGE,
     format_langs,
     format_user_datetime,
     record_user_seen,
     user_has_access,
+    user_locale,
 )
+from vocab_bot.i18n import t
 from vocab_bot.services import ReviewService, TranslationService
 
 
@@ -26,8 +27,9 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     user = await record_user_seen(update, context)
     if user is None:
         return
+    locale = user_locale(user)
     if not user_has_access(user, settings):
-        await query.answer(ACCESS_DISABLED_MESSAGE, show_alert=True)
+        await query.answer(t(locale, "access_disabled"), show_alert=True)
         return
 
     await query.answer()
@@ -45,37 +47,46 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             option_index=option_index,
         )
         if pending is None:
-            await query.edit_message_text("That suggestion expired. Send the word again.")
+            await query.edit_message_text(t(locale, "pending_expired"))
             return
 
         first_review = format_user_datetime(datetime.now(tz=UTC) + timedelta(minutes=10), user)
         await query.edit_message_text(
-            f"Saved “{pending.source_text}” → “{pending.target_text}”. "
-            f"First review around {first_review} ({format_langs(pending.source_lang, pending.target_lang)})."
+            t(
+                locale,
+                "pending_saved",
+                source=pending.source_text,
+                target=pending.target_text,
+                first_review=first_review,
+                lang_pair=format_langs(pending.source_lang, pending.target_lang),
+            )
         )
         return
 
     if data.startswith("dismiss:"):
         pending_id = data.removeprefix("dismiss:")
         await translation_service.dismiss_pending(pending_id=pending_id, user_id=update.effective_user.id)
-        await query.edit_message_text("Okay — not saved.")
+        await query.edit_message_text(t(locale, "pending_dismissed"))
         return
 
     if data.startswith("reveal:"):
         card_id = int(data.removeprefix("reveal:"))
         card = await review_service.get_card_for_user(card_id=card_id, user_id=update.effective_user.id)
         if card is None:
-            await query.edit_message_text("This review card no longer exists.")
+            await query.edit_message_text(t(locale, "review_missing"))
             return
 
-        keyboard = _grade_keyboard(card.id)
+        keyboard = _grade_keyboard(card.id, locale)
         src = html.escape(card.source_text)
         tgt = html.escape(card.target_text)
         await query.edit_message_text(
-            f"<b>Review</b> ({html.escape(format_langs(card.source_lang, card.target_lang))})\n"
-            f"Prompt: <b>{tgt}</b>\n"
-            f"Answer: <b>{src}</b>\n\n"
-            "How hard was it?",
+            t(
+                locale,
+                "review_prompt",
+                lang_pair=html.escape(format_langs(card.source_lang, card.target_lang)),
+                prompt=tgt,
+                answer=src,
+            ),
             reply_markup=keyboard,
             parse_mode="HTML",
         )
@@ -87,27 +98,31 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         quality = int(quality_raw)
         result = await review_service.apply_grade(card_id=card_id, user_id=update.effective_user.id, quality=quality)
         if result is None:
-            await query.edit_message_text("This review card no longer exists.")
+            await query.edit_message_text(t(locale, "review_missing"))
             return
 
         human_when = format_user_datetime(result.next_review_at, user)
         await query.edit_message_text(
-            "Updated schedule.\n"
-            f"Next review: <b>{html.escape(human_when)}</b>\n"
-            "Repetitions: "
-            f"{result.repetition}, interval: {result.interval_days:.4f} days, EF: {result.ease_factor:.2f}",
+            t(
+                locale,
+                "review_updated",
+                next_review=html.escape(human_when),
+                repetition=result.repetition,
+                interval_days=result.interval_days,
+                ease_factor=result.ease_factor,
+            ),
             parse_mode="HTML",
         )
         return
 
 
-def _grade_keyboard(card_id: int) -> InlineKeyboardMarkup:
+def _grade_keyboard(card_id: int, locale: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [
-                InlineKeyboardButton("Again", callback_data=f"grade:{card_id}:0"),
-                InlineKeyboardButton("Good", callback_data=f"grade:{card_id}:3"),
-                InlineKeyboardButton("Easy", callback_data=f"grade:{card_id}:5"),
+                InlineKeyboardButton(t(locale, "button_again"), callback_data=f"grade:{card_id}:0"),
+                InlineKeyboardButton(t(locale, "button_good"), callback_data=f"grade:{card_id}:3"),
+                InlineKeyboardButton(t(locale, "button_easy"), callback_data=f"grade:{card_id}:5"),
             ]
         ]
     )

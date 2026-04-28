@@ -33,6 +33,7 @@ def to_user(record: UserRecord) -> BotUser:
         first_name=record.first_name,
         last_name=record.last_name,
         language_code=record.language_code,
+        preferred_locale=record.preferred_locale,
         timezone=record.timezone,
         preferred_source_lang=record.preferred_source_lang,
         preferred_target_lang=record.preferred_target_lang,

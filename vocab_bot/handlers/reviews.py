@@ -7,6 +7,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 from vocab_bot.handlers.common import format_langs
+from vocab_bot.i18n import DEFAULT_LOCALE, resolve_user_locale, t
 from vocab_bot.services import ReviewService, UserService
 
 logger = logging.getLogger(__name__)
@@ -31,18 +32,23 @@ async def due_poll(context: ContextTypes.DEFAULT_TYPE) -> None:
             continue
 
         try:
+            user = await user_service.get_user(card.user_id)
+            locale = DEFAULT_LOCALE if user is None else resolve_user_locale(user)
             await context.bot.send_message(
                 chat_id=card.user_id,
-                text=(
-                    f"<b>Review time</b> ({format_langs(card.source_lang, card.target_lang)})\n"
-                    f"What is the <b>{card.source_lang}</b> word for:\n<b>{html.escape(card.target_text)}</b>"
+                text=t(
+                    locale,
+                    "due_review_time",
+                    lang_pair=format_langs(card.source_lang, card.target_lang),
+                    source_lang=card.source_lang,
+                    target_text=html.escape(card.target_text),
                 ),
                 parse_mode="HTML",
                 reply_markup=InlineKeyboardMarkup(
                     [
                         [
                             InlineKeyboardButton(
-                                f"Reveal {card.source_lang} word",
+                                t(locale, "due_reveal", source_lang=card.source_lang),
                                 callback_data=f"reveal:{card.id}",
                             )
                         ]

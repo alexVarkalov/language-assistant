@@ -18,6 +18,7 @@ class UserRecord(Base):
     first_name: Mapped[str | None] = mapped_column(String, nullable=True)
     last_name: Mapped[str | None] = mapped_column(String, nullable=True)
     language_code: Mapped[str | None] = mapped_column(String, nullable=True)
+    preferred_locale: Mapped[str | None] = mapped_column(String, nullable=True)
     timezone: Mapped[str | None] = mapped_column(String, nullable=True)
     preferred_source_lang: Mapped[str | None] = mapped_column(String, nullable=True)
     preferred_target_lang: Mapped[str | None] = mapped_column(String, nullable=True)

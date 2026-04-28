@@ -65,6 +65,7 @@ Environment variables:
 ## Bot usage
 
 - Send `/start` to see instructions.
+- Send `/locale ru` (or `/localization ru`) to switch bot interface language to Russian.
 - Send `/languages EN RU` (or `/langs EN RU`) to set your source/target languages.
 - Send `/timezone Europe/Warsaw` to set your local timezone for review times.
 - Send a word/phrase in the source language.

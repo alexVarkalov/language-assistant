@@ -122,6 +122,29 @@ class UserStore:
             session.commit()
             return to_user(record)
 
+    async def set_user_locale(self, telegram_id: int, locale: str) -> BotUser:
+        return await asyncio.to_thread(self._set_user_locale_sync, telegram_id, locale)
+
+    def _set_user_locale_sync(self, telegram_id: int, locale: str) -> BotUser:
+        now = utc_now()
+        with self._session_factory() as session:
+            record = session.scalar(select(UserRecord).where(UserRecord.telegram_id == telegram_id))
+            if record is None:
+                record = UserRecord(
+                    telegram_id=telegram_id,
+                    preferred_locale=locale,
+                    is_allowed=False,
+                    created_at=now,
+                    updated_at=now,
+                    last_seen_at=now,
+                )
+                session.add(record)
+            else:
+                record.preferred_locale = locale
+                record.updated_at = now
+            session.commit()
+            return to_user(record)
+
     async def set_user_languages(self, telegram_id: int, source_lang: str, target_lang: str) -> BotUser:
         return await asyncio.to_thread(self._set_user_languages_sync, telegram_id, source_lang, target_lang)
 

@@ -7,7 +7,6 @@ from telegram.ext import ContextTypes
 
 from vocab_bot.config import Settings
 from vocab_bot.handlers.common import (
-    ACCESS_DISABLED_MESSAGE,
     format_langs,
     format_user_datetime,
     format_user_display,
@@ -17,7 +16,9 @@ from vocab_bot.handlers.common import (
     require_admin,
     user_has_access,
     user_lang_pair,
+    user_locale,
 )
+from vocab_bot.i18n import SUPPORTED_LOCALES, t
 from vocab_bot.services import UserService
 
 
@@ -29,23 +30,35 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = await record_user_seen(update, context)
     if user is None:
         return
+    locale = user_locale(user)
     if not user_has_access(user, settings):
-        await update.effective_message.reply_text(ACCESS_DISABLED_MESSAGE)
+        await update.effective_message.reply_text(t(locale, "access_disabled"))
         return
 
+    source_lang, target_lang = user_lang_pair(user, settings)
     await update.effective_message.reply_html(
-        "<b>Vocabulary bot</b>\n"
-        f"Send a word in <b>{html.escape(settings.source_lang)}</b> and I will translate it to "
-        f"<b>{html.escape(settings.target_lang)}</b>.\n\n"
-        "After each translation you can save the word to start spaced reviews "
-        "(SM-2 style intervals).\n\n"
-        "During a review I show the translation; reveal the word you are learning, "
-        "then grade yourself with <i>Again</i>, <i>Good</i>, or <i>Easy</i>.\n"
-        f"<code>Language pair: {html.escape(format_langs(*user_lang_pair(user, settings)))}</code>\n"
-        "Set your pair with <code>/languages EN RU</code>.\n"
-        f"Set your timezone with <code>/timezone Europe/Warsaw</code>.\n"
-        f"<code>Timezone: {html.escape(format_user_timezone(user))}</code>\n"
-        f"<code>Translator: {html.escape(settings.translator)}</code>"
+        "\n".join(
+            [
+                t(locale, "start_title"),
+                t(
+                    locale,
+                    "start_intro",
+                    source_lang=html.escape(source_lang),
+                    target_lang=html.escape(target_lang),
+                ),
+                "",
+                t(locale, "start_review"),
+                "",
+                t(locale, "start_grading"),
+                t(locale, "start_lang_pair", lang_pair=html.escape(format_langs(source_lang, target_lang))),
+                t(locale, "start_set_pair"),
+                t(locale, "start_set_timezone"),
+                t(locale, "start_timezone", timezone=html.escape(format_user_timezone(user))),
+                t(locale, "start_locale", locale_label=html.escape(user_locale(user))),
+                t(locale, "start_set_locale"),
+                t(locale, "start_translator", translator=html.escape(settings.translator)),
+            ]
+        )
     )
 
 
@@ -84,14 +97,13 @@ async def cmd_timezone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     user = await record_user_seen(update, context)
     if user is None:
         return
+    locale = user_locale(user)
     if not user_has_access(user, settings):
-        await update.effective_message.reply_text(ACCESS_DISABLED_MESSAGE)
+        await update.effective_message.reply_text(t(locale, "access_disabled"))
         return
 
     if not context.args:
-        await update.effective_message.reply_text(
-            f"Your timezone is {format_user_timezone(user)}.\nSet it with /timezone Europe/Warsaw"
-        )
+        await update.effective_message.reply_text(t(locale, "timezone_current", timezone=format_user_timezone(user)))
         return
 
     timezone = context.args[0].strip()
@@ -99,12 +111,12 @@ async def cmd_timezone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     try:
         updated_user = await user_service.set_timezone(update.effective_user.id, timezone)
     except ValueError:
-        await update.effective_message.reply_text(
-            "I do not recognize that timezone. Use an IANA name like Europe/Warsaw, Europe/Moscow, or UTC."
-        )
+        await update.effective_message.reply_text(t(locale, "timezone_invalid"))
         return
 
-    await update.effective_message.reply_text(f"Timezone updated to {format_user_timezone(updated_user)}.")
+    await update.effective_message.reply_text(
+        t(locale, "timezone_updated", timezone=format_user_timezone(updated_user))
+    )
 
 
 async def cmd_languages(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -115,17 +127,21 @@ async def cmd_languages(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     user = await record_user_seen(update, context)
     if user is None:
         return
+    locale = user_locale(user)
     if not user_has_access(user, settings):
-        await update.effective_message.reply_text(ACCESS_DISABLED_MESSAGE)
+        await update.effective_message.reply_text(t(locale, "access_disabled"))
         return
 
     current_source, current_target = user_lang_pair(user, settings)
     allowed = ", ".join(sorted(settings.available_languages))
     if len(context.args) < 2:
         await update.effective_message.reply_text(
-            f"Current pair: {format_langs(current_source, current_target)}\n"
-            f"Allowed languages: {allowed}\n"
-            "Set with /languages <SOURCE> <TARGET>, e.g. /languages EN RU"
+            t(
+                locale,
+                "languages_current",
+                lang_pair=format_langs(current_source, current_target),
+                allowed=allowed,
+            )
         )
         return
 
@@ -134,13 +150,46 @@ async def cmd_languages(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     invalid = [code for code in (source_lang, target_lang) if code not in settings.available_languages]
     if invalid:
         await update.effective_message.reply_text(
-            f"Unsupported language code(s): {', '.join(invalid)}.\nAllowed languages: {allowed}"
+            t(locale, "languages_unsupported", invalid=", ".join(invalid), allowed=allowed)
         )
         return
 
     user_service: UserService = context.application.bot_data["user_service"]
     await user_service.set_languages(update.effective_user.id, source_lang, target_lang)
-    await update.effective_message.reply_text(f"Language pair updated to {format_langs(source_lang, target_lang)}.")
+    await update.effective_message.reply_text(
+        t(locale, "languages_updated", lang_pair=format_langs(source_lang, target_lang))
+    )
+
+
+async def cmd_locale(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.effective_user is None or update.effective_message is None:
+        return
+
+    settings: Settings = context.application.bot_data["settings"]
+    user = await record_user_seen(update, context)
+    if user is None:
+        return
+    locale = user_locale(user)
+    if not user_has_access(user, settings):
+        await update.effective_message.reply_text(t(locale, "access_disabled"))
+        return
+
+    supported = ", ".join(SUPPORTED_LOCALES)
+    if not context.args:
+        await update.effective_message.reply_text(t(locale, "locale_current", locale_label=locale, supported=supported))
+        return
+
+    requested = context.args[0].strip().lower()
+    if requested not in SUPPORTED_LOCALES:
+        await update.effective_message.reply_text(
+            t(locale, "locale_unsupported", locale_label=requested, supported=supported)
+        )
+        return
+
+    user_service: UserService = context.application.bot_data["user_service"]
+    updated_user = await user_service.set_locale(update.effective_user.id, requested)
+    updated_locale = user_locale(updated_user)
+    await update.effective_message.reply_text(t(updated_locale, "locale_updated", locale_label=updated_locale))
 
 
 async def cmd_allow_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

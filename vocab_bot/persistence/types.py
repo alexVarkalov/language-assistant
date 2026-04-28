@@ -37,6 +37,7 @@ class BotUser:
     first_name: str | None
     last_name: str | None
     language_code: str | None
+    preferred_locale: str | None
     timezone: str | None
     preferred_source_lang: str | None
     preferred_target_lang: str | None

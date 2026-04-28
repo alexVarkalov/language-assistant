@@ -8,12 +8,13 @@ from telegram.ext import ContextTypes
 
 from vocab_bot.config import Settings
 from vocab_bot.handlers.common import (
-    ACCESS_DISABLED_MESSAGE,
     format_langs,
     record_user_seen,
     user_has_access,
     user_lang_pair,
+    user_locale,
 )
+from vocab_bot.i18n import t
 from vocab_bot.services import TranslationService
 from vocab_bot.translate import TranslationError
 
@@ -28,8 +29,9 @@ async def on_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     user = await record_user_seen(update, context)
     if user is None:
         return
+    locale = user_locale(user)
     if not user_has_access(user, settings):
-        await update.effective_message.reply_text(ACCESS_DISABLED_MESSAGE)
+        await update.effective_message.reply_text(t(locale, "access_disabled"))
         return
 
     translation_service: TranslationService = context.application.bot_data["translation_service"]
@@ -49,11 +51,11 @@ async def on_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             client=client,
         )
     except TranslationError as exc:
-        await update.effective_message.reply_text(f"Could not translate: {exc}")
+        await update.effective_message.reply_text(t(locale, "translation_could_not", error=exc))
         return
     except Exception:
         logger.exception("translate failed")
-        await update.effective_message.reply_text("Translation failed unexpectedly. Try again later.")
+        await update.effective_message.reply_text(t(locale, "translation_failed_unexpectedly"))
         return
 
     src = html.escape(pending.source_text)
@@ -61,14 +63,16 @@ async def on_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     keyboard_rows: list[list[InlineKeyboardButton]] = []
     for idx, option in enumerate(pending.target_options):
         label = option if len(option) <= 45 else f"{option[:42]}..."
-        keyboard_rows.append([InlineKeyboardButton(f"Save: {label}", callback_data=f"save:{pending.id}:{idx}")])
-    keyboard_rows.append([InlineKeyboardButton("Dismiss", callback_data=f"dismiss:{pending.id}")])
+        keyboard_rows.append(
+            [InlineKeyboardButton(t(locale, "button_save", label=label), callback_data=f"save:{pending.id}:{idx}")]
+        )
+    keyboard_rows.append([InlineKeyboardButton(t(locale, "button_dismiss"), callback_data=f"dismiss:{pending.id}")])
     keyboard = InlineKeyboardMarkup(keyboard_rows)
     options_lines = "\n".join(
         [f"{idx + 1}. <b>{html.escape(option)}</b>" for idx, option in enumerate(pending.target_options)]
     )
 
     await update.effective_message.reply_html(
-        f"<b>{src}</b> ({pair})\nChoose a translation to save:\n{options_lines}",
+        t(locale, "translation_choose", source=src, pair=pair, options=options_lines),
         reply_markup=keyboard,
     )
