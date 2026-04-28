@@ -13,8 +13,13 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pre-commit",
+    "pytest",
+    "pytest-asyncio",
     "ruff",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [project.scripts]
 vocab-bot = "vocab_bot.__main__:main"
