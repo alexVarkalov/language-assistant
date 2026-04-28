@@ -6,6 +6,7 @@ from vocab_bot.handlers.commands import (
     cmd_block_user,
     cmd_languages,
     cmd_locale,
+    cmd_menu,
     cmd_start,
     cmd_timezone,
     cmd_users,
@@ -22,10 +23,12 @@ def register_handlers(application: Application) -> None:
     application.add_handler(CommandHandler("langs", cmd_languages))
     application.add_handler(CommandHandler("locale", cmd_locale))
     application.add_handler(CommandHandler("localization", cmd_locale))
+    application.add_handler(CommandHandler("menu", cmd_menu))
+    application.add_handler(CommandHandler("settings", cmd_menu))
     application.add_handler(CommandHandler("timezone", cmd_timezone))
     application.add_handler(CommandHandler("tz", cmd_timezone))
     application.add_handler(CommandHandler("users", cmd_users))
     application.add_handler(CommandHandler("allow_user", cmd_allow_user))
     application.add_handler(CommandHandler("block_user", cmd_block_user))
-    application.add_handler(CallbackQueryHandler(on_callback, pattern=r"^(save|dismiss|reveal|grade):"))
+    application.add_handler(CallbackQueryHandler(on_callback, pattern=r"^(save|dismiss|reveal|grade|menu):"))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text_message))
