@@ -57,9 +57,11 @@ async def test_review_service_passthrough_methods() -> None:
     service = ReviewService(repo)
 
     await service.get_card_for_user(card_id=1, user_id=2)
+    await service.get_awaiting_card_for_user(user_id=2)
     await service.list_due_cards(limit=8)
     await service.mark_awaiting(card_id=1, user_id=2, awaiting=True)
 
     repo.get.assert_awaited_once_with(1, 2)
+    repo.get_awaiting.assert_awaited_once_with(2)
     repo.list_due.assert_awaited_once_with(limit=8)
     repo.mark_awaiting.assert_awaited_once_with(1, 2, True)

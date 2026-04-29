@@ -21,18 +21,22 @@ class GradeResult:
 
 
 class ReviewService:
-    def __init__(self, card_repo: CardRepository) -> None:
+    def __init__(self, card_repo: CardRepository, *, short_interval_minutes: int = 10) -> None:
         self._card_repo = card_repo
+        self._short_interval_minutes = max(1, short_interval_minutes)
 
     async def get_card_for_user(self, *, card_id: int, user_id: int) -> Card | None:
         return await self._card_repo.get(card_id, user_id)
+
+    async def get_awaiting_card_for_user(self, *, user_id: int) -> Card | None:
+        return await self._card_repo.get_awaiting(user_id)
 
     async def apply_grade(self, *, card_id: int, user_id: int, quality: int) -> GradeResult | None:
         card = await self._card_repo.get(card_id, user_id)
         if card is None:
             return None
         before = SrsState(card.ease_factor, card.interval_days, card.repetition)
-        when, after = next_review_datetime(before, quality, _now())
+        when, after = next_review_datetime(before, quality, _now(), self._short_interval_minutes)
         await self._card_repo.update_srs(
             card_id=card.id,
             user_id=card.user_id,

@@ -97,6 +97,19 @@ class CardStore:
             record = session.scalar(select(CardRecord).where(CardRecord.id == card_id, CardRecord.user_id == user_id))
             return to_card(record) if record is not None else None
 
+    async def get_awaiting_card(self, user_id: int) -> Card | None:
+        return await asyncio.to_thread(self._get_awaiting_card_sync, user_id)
+
+    def _get_awaiting_card_sync(self, user_id: int) -> Card | None:
+        with self._session_factory() as session:
+            record = session.scalar(
+                select(CardRecord)
+                .where(CardRecord.user_id == user_id, CardRecord.awaiting_grade.is_(True))
+                .order_by(CardRecord.next_review_at.asc())
+                .limit(1)
+            )
+            return to_card(record) if record is not None else None
+
     async def list_due_cards(self, limit: int = 10) -> list[Card]:
         return await asyncio.to_thread(self._list_due_cards_sync, limit)
 

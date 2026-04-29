@@ -22,6 +22,9 @@ async def due_poll(context: ContextTypes.DEFAULT_TYPE) -> None:
         logger.exception("due poll: failed to list cards")
         return
 
+    awaiting_messages: dict[tuple[int, int], int] = context.application.bot_data.setdefault(
+        "awaiting_review_messages", {}
+    )
     seen_users: set[int] = set()
     for card in due:
         if card.user_id in seen_users:
@@ -34,7 +37,7 @@ async def due_poll(context: ContextTypes.DEFAULT_TYPE) -> None:
         try:
             user = await user_service.get_user(card.user_id)
             locale = DEFAULT_LOCALE if user is None else resolve_user_locale(user)
-            await context.bot.send_message(
+            sent = await context.bot.send_message(
                 chat_id=card.user_id,
                 text=t(
                     locale,
@@ -55,6 +58,7 @@ async def due_poll(context: ContextTypes.DEFAULT_TYPE) -> None:
                     ]
                 ),
             )
+            awaiting_messages[(card.user_id, card.id)] = sent.message_id
             await review_service.mark_awaiting(card_id=card.id, user_id=card.user_id, awaiting=True)
         except Exception:
             logger.exception("due poll: failed to notify user_id=%s card_id=%s", card.user_id, card.id)

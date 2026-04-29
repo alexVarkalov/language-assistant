@@ -17,7 +17,7 @@ def initial_srs() -> SrsState:
     return SrsState(ease_factor=2.5, interval_days=0.0, repetition=0)
 
 
-def schedule_after_grade(state: SrsState, quality: int) -> SrsState:
+def schedule_after_grade(state: SrsState, quality: int, short_interval_minutes: int = 10) -> SrsState:
     """
     Update SRS state after a review.
 
@@ -35,7 +35,7 @@ def schedule_after_grade(state: SrsState, quality: int) -> SrsState:
         return SrsState(ease_factor=max(1.3, ef), interval_days=0.0, repetition=0)
 
     if rep == 0:
-        new_interval = 1.0 / 24.0 / 6.0  # 10 minutes expressed in days
+        new_interval = max(1, short_interval_minutes) / 60.0 / 24.0
     elif rep == 1:
         new_interval = 1.0
     else:
@@ -46,11 +46,14 @@ def schedule_after_grade(state: SrsState, quality: int) -> SrsState:
     return SrsState(ease_factor=new_ef, interval_days=new_interval, repetition=rep + 1)
 
 
-def next_review_datetime(before: SrsState, quality: int, now: datetime) -> tuple[datetime, SrsState]:
+def next_review_datetime(
+    before: SrsState, quality: int, now: datetime, short_interval_minutes: int = 10
+) -> tuple[datetime, SrsState]:
     """Return the next review instant and the updated SRS snapshot after a grade."""
-    updated = schedule_after_grade(before, quality)
+    interval_minutes = max(1, short_interval_minutes)
+    updated = schedule_after_grade(before, quality, short_interval_minutes=interval_minutes)
     if updated.interval_days <= 0:
-        when = now.astimezone(UTC) + timedelta(minutes=10)
+        when = now.astimezone(UTC) + timedelta(minutes=interval_minutes)
     else:
         when = now.astimezone(UTC) + timedelta(days=updated.interval_days)
     return when, updated

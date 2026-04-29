@@ -52,7 +52,7 @@ class TranslationService:
         if pending is None:
             return None
         selected_target = _select_target(pending, option_index)
-        first_review = _now() + timedelta(minutes=10)
+        first_review = _now() + timedelta(minutes=self._settings.short_review_interval_minutes)
         await self._card_repo.upsert(
             user_id=pending.user_id,
             source_lang=pending.source_lang,

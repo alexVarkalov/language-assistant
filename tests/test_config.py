@@ -13,12 +13,14 @@ def test_settings_from_env_happy_path(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("TARGET_LANG", "ru")
     monkeypatch.setenv("AVAILABLE_LANGUAGES", "en,ru")
     monkeypatch.setenv("ADMIN_USER_IDS", "1, 2, bad")
+    monkeypatch.setenv("SHORT_REVIEW_INTERVAL_MINUTES", "2")
 
     settings = Settings.from_env()
 
     assert settings.bot_token == "token"
     assert settings.deepl_api_key == "deepl-key"
     assert settings.due_poll_interval == 15
+    assert settings.short_review_interval_minutes == 2
     assert settings.source_lang == "PL"
     assert settings.target_lang == "RU"
     assert settings.available_languages == frozenset({"EN", "RU", "PL"})

@@ -62,11 +62,18 @@ _MESSAGES: Mapping[str, Mapping[str, str]] = {
         "button_save": "Save: {label}",
         "button_dismiss": "Dismiss",
         "pending_expired": "That suggestion expired. Send the word again.",
-        "pending_saved": 'Saved "{source}" -> "{target}". First review around {first_review} ({lang_pair}).',
+        "pending_saved": (
+            'Saved "<tg-spoiler>{source}</tg-spoiler>" -> "<tg-spoiler>{target}</tg-spoiler>". '
+            "First review around {first_review} ({lang_pair})."
+        ),
         "pending_dismissed": "Okay - not saved.",
         "review_missing": "This review card no longer exists.",
         "review_prompt": (
             "<b>Review</b> ({lang_pair})\nPrompt: <b>{prompt}</b>\nAnswer: <b>{answer}</b>\n\nHow hard was it?"
+        ),
+        "review_prompt_with_guess": (
+            "<b>Review</b> ({lang_pair})\nPrompt: <b>{prompt}</b>\nYour guess: <b>{guess}</b>\n"
+            "Answer: <b>{answer}</b>\n\nHow hard was it?"
         ),
         "review_updated": (
             "Updated schedule.\nNext review: <b>{next_review}</b>\nRepetitions: {repetition}, "
@@ -135,13 +142,18 @@ _MESSAGES: Mapping[str, Mapping[str, str]] = {
         "button_dismiss": "Отмена",
         "pending_expired": "Этот вариант уже устарел. Отправьте слово снова.",
         "pending_saved": (
-            'Сохранено: "{source}" -> "{target}". Первое повторение примерно в {first_review} ({lang_pair}).'
+            'Сохранено: "<tg-spoiler>{source}</tg-spoiler>" -> "<tg-spoiler>{target}</tg-spoiler>". '
+            "Первое повторение примерно в {first_review} ({lang_pair})."
         ),
         "pending_dismissed": "Хорошо, не сохраняю.",
         "review_missing": "Карточка повторения больше не существует.",
         "review_prompt": (
             "<b>Повторение</b> ({lang_pair})\nПодсказка: <b>{prompt}</b>\nОтвет: <b>{answer}</b>\n\n"
             "Насколько это было сложно?"
+        ),
+        "review_prompt_with_guess": (
+            "<b>Повторение</b> ({lang_pair})\nПодсказка: <b>{prompt}</b>\nВаш вариант: <b>{guess}</b>\n"
+            "Ответ: <b>{answer}</b>\n\nНасколько это было сложно?"
         ),
         "review_updated": (
             "Расписание обновлено.\nСледующее повторение: <b>{next_review}</b>\n"

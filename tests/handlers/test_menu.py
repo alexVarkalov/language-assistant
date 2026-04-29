@@ -21,6 +21,7 @@ def _settings() -> Settings:
         available_languages=frozenset({"EN", "RU", "PL"}),
         database_url="postgresql+psycopg://postgres:postgres@localhost:5432/language_assistant",
         due_poll_interval=45,
+        short_review_interval_minutes=10,
         admin_user_ids=frozenset(),
     )
 

@@ -48,7 +48,10 @@ async def _post_init(application: Application) -> None:
     card_repo = CardRepository(db)
     application.bot_data["user_service"] = UserService(user_repo)
     application.bot_data["translation_service"] = TranslationService(settings, pending_repo, card_repo)
-    application.bot_data["review_service"] = ReviewService(card_repo)
+    application.bot_data["review_service"] = ReviewService(
+        card_repo,
+        short_interval_minutes=settings.short_review_interval_minutes,
+    )
     application.job_queue.run_repeating(
         due_poll,
         interval=settings.due_poll_interval,

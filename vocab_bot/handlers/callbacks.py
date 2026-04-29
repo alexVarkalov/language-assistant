@@ -46,9 +46,15 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     user_service: UserService = context.application.bot_data["user_service"]
 
     data = query.data
+    awaiting_messages: dict[tuple[int, int], int] = context.application.bot_data.setdefault(
+        "awaiting_review_messages", {}
+    )
     if data.startswith("save:"):
-        _, pending_id, option_index_raw = (data.split(":", maxsplit=2) + [None])[:3]
+        _, pending_id, option_index_raw, source_message_id_raw = (data.split(":", maxsplit=3) + [None, None])[:4]
         option_index = int(option_index_raw) if option_index_raw and option_index_raw.isdigit() else None
+        source_message_id = (
+            int(source_message_id_raw) if source_message_id_raw and source_message_id_raw.isdigit() else None
+        )
         pending = await translation_service.save_pending_as_card(
             pending_id=pending_id,
             user_id=update.effective_user.id,
@@ -58,17 +64,27 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             await query.edit_message_text(t(locale, "pending_expired"))
             return
 
-        first_review = format_user_datetime(datetime.now(tz=UTC) + timedelta(minutes=10), user)
+        settings: Settings = context.application.bot_data["settings"]
+        first_review = format_user_datetime(
+            datetime.now(tz=UTC) + timedelta(minutes=settings.short_review_interval_minutes),
+            user,
+        )
         await query.edit_message_text(
             t(
                 locale,
                 "pending_saved",
-                source=pending.source_text,
-                target=pending.target_text,
+                source=html.escape(pending.source_text),
+                target=html.escape(pending.target_text),
                 first_review=first_review,
-                lang_pair=format_langs(pending.source_lang, pending.target_lang),
-            )
+                lang_pair=html.escape(format_langs(pending.source_lang, pending.target_lang)),
+            ),
+            parse_mode="HTML",
         )
+        if source_message_id is not None:
+            try:
+                await context.bot.delete_message(chat_id=update.effective_user.id, message_id=source_message_id)
+            except Exception:
+                pass
         return
 
     if data.startswith("dismiss:"):
@@ -79,6 +95,7 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     if data.startswith("reveal:"):
         card_id = int(data.removeprefix("reveal:"))
+        awaiting_messages.pop((update.effective_user.id, card_id), None)
         card = await review_service.get_card_for_user(card_id=card_id, user_id=update.effective_user.id)
         if card is None:
             await query.edit_message_text(t(locale, "review_missing"))
@@ -103,6 +120,7 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if data.startswith("grade:"):
         _, card_id_raw, quality_raw = data.split(":", maxsplit=2)
         card_id = int(card_id_raw)
+        awaiting_messages.pop((update.effective_user.id, card_id), None)
         quality = int(quality_raw)
         result = await review_service.apply_grade(card_id=card_id, user_id=update.effective_user.id, quality=quality)
         if result is None:

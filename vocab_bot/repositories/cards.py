@@ -38,6 +38,9 @@ class CardRepository:
     async def get(self, card_id: int, user_id: int) -> Card | None:
         return await self._db.get_card(card_id, user_id)
 
+    async def get_awaiting(self, user_id: int) -> Card | None:
+        return await self._db.get_awaiting_card(user_id)
+
     async def list_due(self, limit: int = 10) -> list[Card]:
         return await self._db.list_due_cards(limit)
 

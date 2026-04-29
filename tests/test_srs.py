@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from vocab_bot.srs import SrsState, initial_srs, next_review_datetime, schedule_after_grade
 
@@ -31,3 +31,11 @@ def test_next_review_datetime_uses_interval() -> None:
     before = SrsState(ease_factor=2.5, interval_days=1.0, repetition=2)
     when, _ = next_review_datetime(before, 5, now)
     assert when > now
+
+
+def test_next_review_datetime_uses_custom_short_interval() -> None:
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+    before = initial_srs()
+    when, updated = next_review_datetime(before, 3, now, short_interval_minutes=1)
+    assert when == now + timedelta(minutes=1)
+    assert updated.interval_days > 0.0

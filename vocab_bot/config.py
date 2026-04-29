@@ -15,6 +15,7 @@ class Settings:
     available_languages: frozenset[str]
     database_url: str
     due_poll_interval: int
+    short_review_interval_minutes: int
     admin_user_ids: frozenset[int]
 
     @classmethod
@@ -29,6 +30,12 @@ class Settings:
             due_poll_interval = max(15, int(interval_raw))
         except ValueError:
             due_poll_interval = 45
+
+        short_interval_raw = os.environ.get("SHORT_REVIEW_INTERVAL_MINUTES", "10").strip()
+        try:
+            short_review_interval_minutes = max(1, int(short_interval_raw))
+        except ValueError:
+            short_review_interval_minutes = 10
 
         deepl = os.environ.get("DEEPL_API_KEY", "").strip() or None
         # Default free: most keys from deepl.com/pro-api are Free-plan keys (api-free.deepl.com only).
@@ -66,6 +73,7 @@ class Settings:
             available_languages=available_languages,
             database_url=database_url,
             due_poll_interval=due_poll_interval,
+            short_review_interval_minutes=short_review_interval_minutes,
             admin_user_ids=admin_user_ids,
         )
 

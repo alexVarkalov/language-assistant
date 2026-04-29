@@ -38,6 +38,7 @@ TARGET_LANG=RU
 AVAILABLE_LANGUAGES=EN,RU,PL
 DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/language_assistant
 DUE_POLL_INTERVAL=45
+SHORT_REVIEW_INTERVAL_MINUTES=10
 ADMIN_USER_IDS=123456789
 ```
 
@@ -60,6 +61,7 @@ Environment variables:
 - `AVAILABLE_LANGUAGES` (optional): comma-separated language codes users can choose from. Default: `EN,RU,PL`.
 - `DATABASE_URL` (optional): PostgreSQL SQLAlchemy URL. Default: `postgresql+psycopg://postgres:postgres@localhost:5432/language_assistant`.
 - `DUE_POLL_INTERVAL` (optional): polling interval in seconds (minimum 15). Default: `45`.
+- `SHORT_REVIEW_INTERVAL_MINUTES` (optional): short review delay in minutes used for first review and resets after `Again` (minimum 1). Default: `10`.
 - `ADMIN_USER_IDS` (optional): comma-separated Telegram user IDs allowed to manage user access.
 
 ## Bot usage
@@ -170,6 +172,7 @@ AVAILABLE_LANGUAGES=EN,RU,PL
 
 DATABASE_URL=postgresql+psycopg://langbot:change_me_strong_password@localhost:5432/language_assistant
 DUE_POLL_INTERVAL=45
+SHORT_REVIEW_INTERVAL_MINUTES=10
 ADMIN_USER_IDS=123456789
 ```
 
