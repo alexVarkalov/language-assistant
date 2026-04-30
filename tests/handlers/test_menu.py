@@ -5,6 +5,7 @@ from vocab_bot.config import Settings
 from vocab_bot.handlers.menu import (
     language_menu_keyboard,
     locale_menu_keyboard,
+    quick_language_pairs_keyboard,
     settings_menu_keyboard,
     settings_menu_text,
 )
@@ -36,7 +37,7 @@ def test_settings_menu_text_contains_current_values() -> None:
 def test_settings_menu_keyboard_has_expected_callbacks() -> None:
     keyboard = settings_menu_keyboard("en")
     callbacks = [button.callback_data for row in keyboard.inline_keyboard for button in row]
-    assert callbacks == ["menu:locale", "menu:source", "menu:target"]
+    assert callbacks == ["menu:locale", "menu:pair"]
 
 
 def test_locale_menu_marks_current_locale() -> None:
@@ -50,3 +51,14 @@ def test_language_menu_marks_selected_and_axis() -> None:
     keyboard = language_menu_keyboard("en", frozenset({"EN", "RU"}), "EN", "source")
     first_row = keyboard.inline_keyboard[0][0]
     assert first_row.callback_data.startswith("menu:set_source:")
+
+
+def test_quick_language_pairs_keyboard_has_expected_pairs() -> None:
+    keyboard = quick_language_pairs_keyboard("en")
+    callbacks = [button.callback_data for row in keyboard.inline_keyboard for button in row]
+    assert callbacks == [
+        "menu:set_pair:PL:RU",
+        "menu:set_pair:RU:PL",
+        "menu:set_pair:EN:RU",
+        "menu:set_pair:RU:EN",
+    ]

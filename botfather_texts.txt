@@ -1,0 +1,28 @@
+BotFather setup texts for Language Assistant Bot
+===============================================
+
+1) /setcommands (user-facing)
+-----------------------------
+start - Show welcome message and how to use the bot
+menu - Open settings menu
+languages - Set source and target translation languages
+quicklangs - Quickly switch to a preset language pair
+locale - Change bot interface language
+timezone - Set your timezone for review reminders
+
+
+2) /setcommands (admin, optional)
+---------------------------------
+users - List recently seen users (admin)
+allow_user - Allow a user by Telegram ID (admin)
+block_user - Block a user by Telegram ID (admin)
+
+
+3) /setdescription
+------------------
+Vocabulary learning bot with translation and spaced repetition. Translate words, save cards, and get review reminders.
+
+
+4) /setabouttext
+----------------
+Translate, save, and review vocabulary with spaced repetition.

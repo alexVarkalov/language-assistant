@@ -45,7 +45,11 @@ async def on_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         awaiting_messages: dict[tuple[int, int], int] = context.application.bot_data.setdefault(
             "awaiting_review_messages", {}
         )
+        awaiting_directions: dict[tuple[int, int], str] = context.application.bot_data.setdefault(
+            "awaiting_review_directions", {}
+        )
         previous_prompt_message_id = awaiting_messages.pop((update.effective_user.id, awaiting_card.id), None)
+        direction = awaiting_directions.pop((update.effective_user.id, awaiting_card.id), "source")
         if previous_prompt_message_id is not None:
             try:
                 await context.bot.delete_message(
@@ -53,15 +57,21 @@ async def on_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 )
             except Exception:
                 pass
+        if direction == "target":
+            prompt = awaiting_card.source_text
+            answer = awaiting_card.target_text
+        else:
+            prompt = awaiting_card.target_text
+            answer = awaiting_card.source_text
         guess = html.escape(text.strip())
         await update.effective_message.reply_html(
             t(
                 locale,
                 "review_prompt_with_guess",
                 lang_pair=html.escape(format_langs(awaiting_card.source_lang, awaiting_card.target_lang)),
-                prompt=html.escape(awaiting_card.target_text),
+                prompt=html.escape(prompt),
                 guess=guess,
-                answer=html.escape(awaiting_card.source_text),
+                answer=html.escape(answer),
             ),
             reply_markup=_grade_keyboard(awaiting_card.id, locale),
         )

@@ -18,7 +18,7 @@ from vocab_bot.handlers.common import (
     user_lang_pair,
     user_locale,
 )
-from vocab_bot.handlers.menu import settings_menu_keyboard, settings_menu_text
+from vocab_bot.handlers.menu import quick_language_pairs_keyboard, settings_menu_keyboard, settings_menu_text
 from vocab_bot.i18n import SUPPORTED_LOCALES, t
 from vocab_bot.services import UserService
 
@@ -209,6 +209,25 @@ async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.effective_message.reply_html(
         settings_menu_text(locale, user, settings),
         reply_markup=settings_menu_keyboard(locale),
+    )
+
+
+async def cmd_quicklangs(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.effective_user is None or update.effective_message is None:
+        return
+
+    settings: Settings = context.application.bot_data["settings"]
+    user = await record_user_seen(update, context)
+    if user is None:
+        return
+    locale = user_locale(user)
+    if not user_has_access(user, settings):
+        await update.effective_message.reply_text(t(locale, "access_disabled"))
+        return
+
+    await update.effective_message.reply_text(
+        t(locale, "quick_pair_choose"),
+        reply_markup=quick_language_pairs_keyboard(locale),
     )
 
 

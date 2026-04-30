@@ -12,12 +12,11 @@ from vocab_bot.handlers.common import (
     format_user_datetime,
     record_user_seen,
     user_has_access,
-    user_lang_pair,
     user_locale,
 )
 from vocab_bot.handlers.menu import (
-    language_menu_keyboard,
     locale_menu_keyboard,
+    quick_language_pairs_keyboard,
     settings_menu_keyboard,
     settings_menu_text,
 )
@@ -48,6 +47,9 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     data = query.data
     awaiting_messages: dict[tuple[int, int], int] = context.application.bot_data.setdefault(
         "awaiting_review_messages", {}
+    )
+    awaiting_directions: dict[tuple[int, int], str] = context.application.bot_data.setdefault(
+        "awaiting_review_directions", {}
     )
     if data.startswith("save:"):
         _, pending_id, option_index_raw, source_message_id_raw = (data.split(":", maxsplit=3) + [None, None])[:4]
@@ -94,23 +96,29 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         return
 
     if data.startswith("reveal:"):
-        card_id = int(data.removeprefix("reveal:"))
+        _, card_id_raw, direction = (data.split(":", maxsplit=2) + ["source"])[:3]
+        card_id = int(card_id_raw)
         awaiting_messages.pop((update.effective_user.id, card_id), None)
+        direction = awaiting_directions.pop((update.effective_user.id, card_id), direction)
         card = await review_service.get_card_for_user(card_id=card_id, user_id=update.effective_user.id)
         if card is None:
             await query.edit_message_text(t(locale, "review_missing"))
             return
 
         keyboard = _grade_keyboard(card.id, locale)
-        src = html.escape(card.source_text)
-        tgt = html.escape(card.target_text)
+        if direction == "target":
+            prompt = html.escape(card.source_text)
+            answer = html.escape(card.target_text)
+        else:
+            prompt = html.escape(card.target_text)
+            answer = html.escape(card.source_text)
         await query.edit_message_text(
             t(
                 locale,
                 "review_prompt",
                 lang_pair=html.escape(format_langs(card.source_lang, card.target_lang)),
-                prompt=tgt,
-                answer=src,
+                prompt=prompt,
+                answer=answer,
             ),
             reply_markup=keyboard,
             parse_mode="HTML",
@@ -121,6 +129,7 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         _, card_id_raw, quality_raw = data.split(":", maxsplit=2)
         card_id = int(card_id_raw)
         awaiting_messages.pop((update.effective_user.id, card_id), None)
+        awaiting_directions.pop((update.effective_user.id, card_id), None)
         quality = int(quality_raw)
         result = await review_service.apply_grade(card_id=card_id, user_id=update.effective_user.id, quality=quality)
         if result is None:
@@ -156,19 +165,10 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         )
         return
 
-    if data == "menu:source":
-        source_lang, _ = user_lang_pair(user, settings)
+    if data == "menu:pair":
         await query.edit_message_text(
-            t(locale, "menu_choose_source"),
-            reply_markup=language_menu_keyboard(locale, settings.available_languages, source_lang, "source"),
-        )
-        return
-
-    if data == "menu:target":
-        _, target_lang = user_lang_pair(user, settings)
-        await query.edit_message_text(
-            t(locale, "menu_choose_target"),
-            reply_markup=language_menu_keyboard(locale, settings.available_languages, target_lang, "target"),
+            t(locale, "quick_pair_choose"),
+            reply_markup=quick_language_pairs_keyboard(locale),
         )
         return
 
@@ -194,43 +194,27 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         )
         return
 
-    if data.startswith("menu:set_source:"):
-        source_lang = data.removeprefix("menu:set_source:")
-        if source_lang not in settings.available_languages:
-            await query.answer(t(locale, "menu_invalid_language", code=source_lang), show_alert=True)
+    if data.startswith("menu:set_pair:"):
+        pair_data = data.removeprefix("menu:set_pair:")
+        source_lang, _, target_lang = pair_data.partition(":")
+        source_lang = source_lang.strip().upper()
+        target_lang = target_lang.strip().upper()
+        invalid = [code for code in (source_lang, target_lang) if code not in settings.available_languages]
+        if invalid:
+            await query.answer(
+                t(
+                    locale,
+                    "languages_unsupported",
+                    invalid=", ".join(invalid),
+                    allowed=", ".join(sorted(settings.available_languages)),
+                ),
+                show_alert=True,
+            )
             return
-        _, current_target = user_lang_pair(user, settings)
-        updated_user = await user_service.set_languages(update.effective_user.id, source_lang, current_target)
+        updated_user = await user_service.set_languages(update.effective_user.id, source_lang, target_lang)
         updated_locale = user_locale(updated_user)
         await query.edit_message_text(
-            settings_menu_text(
-                updated_locale,
-                updated_user,
-                settings,
-                status_line=t(updated_locale, "menu_source_updated", code=source_lang),
-            ),
-            reply_markup=settings_menu_keyboard(updated_locale),
-            parse_mode="HTML",
-        )
-        return
-
-    if data.startswith("menu:set_target:"):
-        target_lang = data.removeprefix("menu:set_target:")
-        if target_lang not in settings.available_languages:
-            await query.answer(t(locale, "menu_invalid_language", code=target_lang), show_alert=True)
-            return
-        current_source, _ = user_lang_pair(user, settings)
-        updated_user = await user_service.set_languages(update.effective_user.id, current_source, target_lang)
-        updated_locale = user_locale(updated_user)
-        await query.edit_message_text(
-            settings_menu_text(
-                updated_locale,
-                updated_user,
-                settings,
-                status_line=t(updated_locale, "menu_target_updated", code=target_lang),
-            ),
-            reply_markup=settings_menu_keyboard(updated_locale),
-            parse_mode="HTML",
+            t(updated_locale, "quick_pair_updated", lang_pair=format_langs(source_lang, target_lang))
         )
         return
 

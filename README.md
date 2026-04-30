@@ -68,6 +68,8 @@ Environment variables:
 
 - Send `/start` to see instructions.
 - Send `/menu` (or `/settings`) to open an interactive settings menu.
+- In `/menu`, you can change interface language and pick a source/target language pair.
+- Send `/quicklangs` to quickly choose one of the common language pairs with buttons.
 - Send `/locale ru` (or `/localization ru`) to switch bot interface language to Russian.
 - Send `/languages EN RU` (or `/langs EN RU`) to set your source/target languages.
 - Send `/timezone Europe/Warsaw` to set your local timezone for review times.

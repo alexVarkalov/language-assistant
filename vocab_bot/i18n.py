@@ -19,7 +19,7 @@ _MESSAGES: Mapping[str, Mapping[str, str]] = {
             "then grade yourself with <i>Again</i>, <i>Good</i>, or <i>Easy</i>."
         ),
         "start_lang_pair": "<code>Language pair: {lang_pair}</code>",
-        "start_set_pair": "Set your pair with <code>/languages EN RU</code>.",
+        "start_set_pair": "Set your pair with <code>/quicklangs</code>.",
         "start_set_timezone": "Set your timezone with <code>/timezone Europe/Warsaw</code>.",
         "start_timezone": "<code>Timezone: {timezone}</code>",
         "start_locale": "<code>Locale: {locale_label}</code>",
@@ -47,15 +47,15 @@ _MESSAGES: Mapping[str, Mapping[str, str]] = {
         "menu_current_pair": "Language pair: <b>{lang_pair}</b>",
         "menu_hint": "Choose what you want to change:",
         "menu_button_locale": "Change interface language",
-        "menu_button_source": "Change source language",
-        "menu_button_target": "Change target language",
+        "menu_button_pair": "Change source/target pair",
         "menu_button_back": "Back",
         "menu_choose_locale": "Choose interface language:",
-        "menu_choose_source": "Choose source language:",
-        "menu_choose_target": "Choose target language:",
         "menu_invalid_language": "Unsupported language code: {code}",
         "menu_source_updated": "Source language set to {code}.",
         "menu_target_updated": "Target language set to {code}.",
+        "quick_pair_choose": "Choose a language pair:",
+        "quick_pair_button": "{source} -> {target}",
+        "quick_pair_updated": "Language pair updated to {lang_pair}.",
         "translation_could_not": "Could not translate: {error}",
         "translation_failed_unexpectedly": "Translation failed unexpectedly. Try again later.",
         "translation_choose": "<b>{source}</b> ({pair})\nChoose a translation to save:\n{options}",
@@ -83,9 +83,9 @@ _MESSAGES: Mapping[str, Mapping[str, str]] = {
         "button_good": "Good",
         "button_easy": "Easy",
         "due_review_time": (
-            "<b>Review time</b> ({lang_pair})\nWhat is the <b>{source_lang}</b> word for:\n<b>{target_text}</b>"
+            "<b>Review time</b> ({lang_pair})\nWhat is the <b>{answer_lang}</b> word for:\n<b>{prompt_text}</b>"
         ),
-        "due_reveal": "Reveal {source_lang} word",
+        "due_reveal": "Reveal {answer_lang} word",
     },
     "ru": {
         "access_disabled": "Ваш доступ к боту отключен. Если это ошибка, свяжитесь с администратором.",
@@ -98,7 +98,7 @@ _MESSAGES: Mapping[str, Mapping[str, str]] = {
             "и оцените себя: <i>Again</i>, <i>Good</i> или <i>Easy</i>."
         ),
         "start_lang_pair": "<code>Языковая пара: {lang_pair}</code>",
-        "start_set_pair": "Изменить пару: <code>/languages EN RU</code>.",
+        "start_set_pair": "Изменить языковую пару: <code>/quicklangs</code>.",
         "start_set_timezone": "Установить часовой пояс: <code>/timezone Europe/Moscow</code>.",
         "start_timezone": "<code>Часовой пояс: {timezone}</code>",
         "start_locale": "<code>Язык интерфейса: {locale_label}</code>",
@@ -126,15 +126,15 @@ _MESSAGES: Mapping[str, Mapping[str, str]] = {
         "menu_current_pair": "Языковая пара: <b>{lang_pair}</b>",
         "menu_hint": "Выберите, что хотите изменить:",
         "menu_button_locale": "Изменить язык интерфейса",
-        "menu_button_source": "Изменить исходный язык",
-        "menu_button_target": "Изменить целевой язык",
+        "menu_button_pair": "Изменить языковую пару",
         "menu_button_back": "Назад",
         "menu_choose_locale": "Выберите язык интерфейса:",
-        "menu_choose_source": "Выберите исходный язык:",
-        "menu_choose_target": "Выберите целевой язык:",
         "menu_invalid_language": "Неподдерживаемый код языка: {code}",
         "menu_source_updated": "Исходный язык установлен: {code}.",
         "menu_target_updated": "Целевой язык установлен: {code}.",
+        "quick_pair_choose": "Выберите языковую пару:",
+        "quick_pair_button": "{source} -> {target}",
+        "quick_pair_updated": "Языковая пара обновлена: {lang_pair}.",
         "translation_could_not": "Не удалось перевести: {error}",
         "translation_failed_unexpectedly": "Ошибка перевода. Попробуйте еще раз позже.",
         "translation_choose": "<b>{source}</b> ({pair})\nВыберите перевод для сохранения:\n{options}",
@@ -163,10 +163,10 @@ _MESSAGES: Mapping[str, Mapping[str, str]] = {
         "button_good": "Good",
         "button_easy": "Easy",
         "due_review_time": (
-            "<b>Пора повторять</b> ({lang_pair})\nКакое слово на <b>{source_lang}</b> соответствует:\n"
-            "<b>{target_text}</b>"
+            "<b>Пора повторять</b> ({lang_pair})\nКакое слово на <b>{answer_lang}</b> соответствует:\n"
+            "<b>{prompt_text}</b>"
         ),
-        "due_reveal": "Показать слово на {source_lang}",
+        "due_reveal": "Показать слово на {answer_lang}",
     },
 }
 

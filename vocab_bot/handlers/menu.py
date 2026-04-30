@@ -26,8 +26,7 @@ def settings_menu_keyboard(locale: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [InlineKeyboardButton(t(locale, "menu_button_locale"), callback_data="menu:locale")],
-            [InlineKeyboardButton(t(locale, "menu_button_source"), callback_data="menu:source")],
-            [InlineKeyboardButton(t(locale, "menu_button_target"), callback_data="menu:target")],
+            [InlineKeyboardButton(t(locale, "menu_button_pair"), callback_data="menu:pair")],
         ]
     )
 
@@ -59,4 +58,19 @@ def language_menu_keyboard(
         marker = "✅ " if code == selected_lang else ""
         rows.append([InlineKeyboardButton(f"{marker}{code}", callback_data=f"menu:set_{axis}:{code}")])
     rows.append([InlineKeyboardButton(t(locale, "menu_button_back"), callback_data="menu:open")])
+    return InlineKeyboardMarkup(rows)
+
+
+def quick_language_pairs_keyboard(locale: str) -> InlineKeyboardMarkup:
+    pairs = [("PL", "RU"), ("RU", "PL"), ("EN", "RU"), ("RU", "EN")]
+    rows: list[list[InlineKeyboardButton]] = []
+    for source_lang, target_lang in pairs:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    t(locale, "quick_pair_button", source=source_lang, target=target_lang),
+                    callback_data=f"menu:set_pair:{source_lang}:{target_lang}",
+                )
+            ]
+        )
     return InlineKeyboardMarkup(rows)
