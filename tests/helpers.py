@@ -15,8 +15,6 @@ def make_user(**overrides: object) -> BotUser:
         "language_code": "en",
         "preferred_locale": None,
         "timezone": "UTC",
-        "preferred_source_lang": "EN",
-        "preferred_target_lang": "RU",
         "is_allowed": True,
         "created_at": now,
         "updated_at": now,

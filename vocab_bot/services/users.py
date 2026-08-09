@@ -51,8 +51,5 @@ class UserService:
         normalized = normalize_locale(locale)
         return await self._user_repo.set_locale(telegram_id, normalized)
 
-    async def set_languages(self, telegram_id: int, source_lang: str, target_lang: str) -> BotUser:
-        return await self._user_repo.set_languages(telegram_id, source_lang, target_lang)
-
     async def list_recent(self, limit: int = 50) -> list[BotUser]:
         return await self._user_repo.list_recent(limit)

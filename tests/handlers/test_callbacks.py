@@ -21,7 +21,6 @@ def _settings() -> Settings:
         translator="deepl",
         source_lang="EN",
         target_lang="RU",
-        available_languages=frozenset({"EN", "RU", "PL"}),
         database_url="postgresql+psycopg://postgres:postgres@localhost:5432/language_assistant",
         due_poll_interval=45,
         short_review_interval_minutes=10,
@@ -174,7 +173,7 @@ async def test_on_callback_grade_success(monkeypatch: pytest.MonkeyPatch) -> Non
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("data", ["menu:open", "menu:locale", "menu:pair"])
+@pytest.mark.parametrize("data", ["menu:open", "menu:locale"])
 async def test_on_callback_menu_branches(monkeypatch: pytest.MonkeyPatch, data: str) -> None:
     update = _update(data)
     context = _ctx()
@@ -206,28 +205,4 @@ async def test_on_callback_set_locale_valid(monkeypatch: pytest.MonkeyPatch) -> 
     await on_callback(update, context)
 
     context.application.bot_data["user_service"].set_locale.assert_awaited_once_with(123, "ru")
-    update.callback_query.edit_message_text.assert_awaited_once()
-
-
-@pytest.mark.asyncio
-async def test_on_callback_set_pair_invalid(monkeypatch: pytest.MonkeyPatch) -> None:
-    update = _update("menu:set_pair:EN:ZZ")
-    context = _ctx()
-    monkeypatch.setattr(callbacks_module, "record_user_seen", AsyncMock(return_value=make_user()))
-
-    await on_callback(update, context)
-
-    assert update.callback_query.answer.await_count == 2
-
-
-@pytest.mark.asyncio
-async def test_on_callback_set_pair_valid(monkeypatch: pytest.MonkeyPatch) -> None:
-    update = _update("menu:set_pair:PL:RU")
-    context = _ctx()
-    monkeypatch.setattr(callbacks_module, "record_user_seen", AsyncMock(return_value=make_user(preferred_locale="en")))
-    context.application.bot_data["user_service"].set_languages.return_value = make_user(preferred_locale="ru")
-
-    await on_callback(update, context)
-
-    context.application.bot_data["user_service"].set_languages.assert_awaited_once_with(123, "PL", "RU")
     update.callback_query.edit_message_text.assert_awaited_once()

@@ -37,11 +37,9 @@ async def test_user_repository_mutation_methods_call_db() -> None:
     await repo.set_allowed(1, True)
     await repo.set_timezone(1, "UTC")
     await repo.set_locale(1, "ru")
-    await repo.set_languages(1, "EN", "RU")
     await repo.list_recent(limit=3)
 
     db.set_user_allowed.assert_awaited_once_with(1, True)
     db.set_user_timezone.assert_awaited_once_with(1, "UTC")
     db.set_user_locale.assert_awaited_once_with(1, "ru")
-    db.set_user_languages.assert_awaited_once_with(1, "EN", "RU")
     db.list_users.assert_awaited_once_with(3)

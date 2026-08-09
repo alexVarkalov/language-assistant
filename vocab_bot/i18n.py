@@ -12,14 +12,16 @@ _MESSAGES: Mapping[str, Mapping[str, str]] = {
         "access_disabled": "Your access to this bot is disabled. Contact the bot administrator if this looks wrong.",
         "admin_only": "This command is only available to bot admins.",
         "start_title": "<b>Vocabulary bot</b>",
-        "start_intro": "Send a word in <b>{source_lang}</b> and I will translate it to <b>{target_lang}</b>.",
+        "start_intro": (
+            "Send a word in <b>{lang_a}</b> or <b>{lang_b}</b> "
+            "and I will detect which one and translate it to the other."
+        ),
         "start_review": "After each translation you can save the word to start spaced reviews (SM-2 style intervals).",
         "start_grading": (
             "During a review I show the translation; reveal the word you are learning, "
             "then grade yourself with <i>Again</i>, <i>Good</i>, or <i>Easy</i>."
         ),
         "start_lang_pair": "<code>Language pair: {lang_pair}</code>",
-        "start_set_pair": "Set your pair with <code>/quicklangs</code>.",
         "start_set_timezone": "Set your timezone with <code>/timezone Europe/Warsaw</code>.",
         "start_timezone": "<code>Timezone: {timezone}</code>",
         "start_locale": "<code>Locale: {locale_label}</code>",
@@ -30,12 +32,6 @@ _MESSAGES: Mapping[str, Mapping[str, str]] = {
             "I do not recognize that timezone. Use an IANA name like Europe/Warsaw, Europe/Moscow, or UTC."
         ),
         "timezone_updated": "Timezone updated to {timezone}.",
-        "languages_current": (
-            "Current pair: {lang_pair}\nAllowed languages: {allowed}\n"
-            "Set with /languages <SOURCE> <TARGET>, e.g. /languages EN RU"
-        ),
-        "languages_unsupported": "Unsupported language code(s): {invalid}.\nAllowed languages: {allowed}",
-        "languages_updated": "Language pair updated to {lang_pair}.",
         "locale_current": (
             "Current interface language: {locale_label}\nSupported locales: {supported}\n"
             "Set with /locale <code>, e.g. /locale ru"
@@ -47,15 +43,8 @@ _MESSAGES: Mapping[str, Mapping[str, str]] = {
         "menu_current_pair": "Language pair: <b>{lang_pair}</b>",
         "menu_hint": "Choose what you want to change:",
         "menu_button_locale": "Change interface language",
-        "menu_button_pair": "Change source/target pair",
         "menu_button_back": "Back",
         "menu_choose_locale": "Choose interface language:",
-        "menu_invalid_language": "Unsupported language code: {code}",
-        "menu_source_updated": "Source language set to {code}.",
-        "menu_target_updated": "Target language set to {code}.",
-        "quick_pair_choose": "Choose a language pair:",
-        "quick_pair_button": "{source} -> {target}",
-        "quick_pair_updated": "Language pair updated to {lang_pair}.",
         "translation_could_not": "Could not translate: {error}",
         "translation_failed_unexpectedly": "Translation failed unexpectedly. Try again later.",
         "translation_choose": "<b>{source}</b> ({pair})\nChoose a translation to save:\n{options}",
@@ -91,14 +80,15 @@ _MESSAGES: Mapping[str, Mapping[str, str]] = {
         "access_disabled": "Ваш доступ к боту отключен. Если это ошибка, свяжитесь с администратором.",
         "admin_only": "Эта команда доступна только администраторам бота.",
         "start_title": "<b>Словарный бот</b>",
-        "start_intro": "Отправьте слово на <b>{source_lang}</b>, и я переведу его на <b>{target_lang}</b>.",
+        "start_intro": (
+            "Отправьте слово на <b>{lang_a}</b> или <b>{lang_b}</b> — я определю, какой это язык, и переведу на другой."
+        ),
         "start_review": "После каждого перевода вы можете сохранить слово и начать интервальные повторения (SM-2).",
         "start_grading": (
             "Во время повторения я показываю перевод; раскройте изучаемое слово "
             "и оцените себя: <i>Again</i>, <i>Good</i> или <i>Easy</i>."
         ),
         "start_lang_pair": "<code>Языковая пара: {lang_pair}</code>",
-        "start_set_pair": "Изменить языковую пару: <code>/quicklangs</code>.",
         "start_set_timezone": "Установить часовой пояс: <code>/timezone Europe/Moscow</code>.",
         "start_timezone": "<code>Часовой пояс: {timezone}</code>",
         "start_locale": "<code>Язык интерфейса: {locale_label}</code>",
@@ -109,12 +99,6 @@ _MESSAGES: Mapping[str, Mapping[str, str]] = {
             "Не удалось распознать часовой пояс. Используйте IANA-имя, например Europe/Moscow, Europe/Warsaw или UTC."
         ),
         "timezone_updated": "Часовой пояс обновлен: {timezone}.",
-        "languages_current": (
-            "Текущая пара: {lang_pair}\nДоступные языки: {allowed}\n"
-            "Изменить: /languages <SOURCE> <TARGET>, например /languages EN RU"
-        ),
-        "languages_unsupported": "Неподдерживаемые коды языка: {invalid}.\nДоступные языки: {allowed}",
-        "languages_updated": "Языковая пара обновлена: {lang_pair}.",
         "locale_current": (
             "Текущий язык интерфейса: {locale_label}\nПоддерживаемые локали: {supported}\n"
             "Изменить: /locale <code>, например /locale ru"
@@ -126,15 +110,8 @@ _MESSAGES: Mapping[str, Mapping[str, str]] = {
         "menu_current_pair": "Языковая пара: <b>{lang_pair}</b>",
         "menu_hint": "Выберите, что хотите изменить:",
         "menu_button_locale": "Изменить язык интерфейса",
-        "menu_button_pair": "Изменить языковую пару",
         "menu_button_back": "Назад",
         "menu_choose_locale": "Выберите язык интерфейса:",
-        "menu_invalid_language": "Неподдерживаемый код языка: {code}",
-        "menu_source_updated": "Исходный язык установлен: {code}.",
-        "menu_target_updated": "Целевой язык установлен: {code}.",
-        "quick_pair_choose": "Выберите языковую пару:",
-        "quick_pair_button": "{source} -> {target}",
-        "quick_pair_updated": "Языковая пара обновлена: {lang_pair}.",
         "translation_could_not": "Не удалось перевести: {error}",
         "translation_failed_unexpectedly": "Ошибка перевода. Попробуйте еще раз позже.",
         "translation_choose": "<b>{source}</b> ({pair})\nВыберите перевод для сохранения:\n{options}",

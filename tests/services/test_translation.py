@@ -19,7 +19,6 @@ def _settings() -> Settings:
         translator="deepl",
         source_lang="EN",
         target_lang="RU",
-        available_languages=frozenset({"EN", "RU"}),
         database_url="postgresql+psycopg://postgres:postgres@localhost:5432/language_assistant",
         due_poll_interval=45,
         short_review_interval_minutes=10,

@@ -11,10 +11,10 @@ from vocab_bot.handlers.common import (
     format_langs,
     record_user_seen,
     user_has_access,
-    user_lang_pair,
     user_locale,
 )
 from vocab_bot.i18n import t
+from vocab_bot.lang_detect import resolve_direction
 from vocab_bot.services import ReviewService, TranslationService
 from vocab_bot.translate import TranslationError
 
@@ -79,7 +79,7 @@ async def on_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     translation_service: TranslationService = context.application.bot_data["translation_service"]
     client = context.application.bot_data["http_client"]
-    source_lang, target_lang = user_lang_pair(user, settings)
+    source_lang, target_lang = resolve_direction(text, settings.source_lang, settings.target_lang)
 
     try:
         pending = await translation_service.translate_and_store_pending(

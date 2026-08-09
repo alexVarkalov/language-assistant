@@ -16,10 +16,8 @@ def format_langs(source_lang: str, target_lang: str) -> str:
     return f"{source_lang}→{target_lang}"
 
 
-def user_lang_pair(user: BotUser, settings: Settings) -> tuple[str, str]:
-    source = user.preferred_source_lang or settings.source_lang
-    target = user.preferred_target_lang or settings.target_lang
-    return source, target
+def format_pair(lang_a: str, lang_b: str) -> str:
+    return f"{lang_a}↔{lang_b}"
 
 
 def user_timezone(user: BotUser) -> ZoneInfo:

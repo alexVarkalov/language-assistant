@@ -22,7 +22,6 @@ def _settings() -> Settings:
         translator="deepl",
         source_lang="EN",
         target_lang="RU",
-        available_languages=frozenset({"EN", "RU"}),
         database_url="postgresql+psycopg://postgres:postgres@localhost:5432/language_assistant",
         due_poll_interval=45,
         short_review_interval_minutes=10,
@@ -152,6 +151,52 @@ async def test_on_text_message_translation_success_builds_buttons(monkeypatch: p
     callbacks = [button.callback_data for row in keyboard.inline_keyboard for button in row]
     assert "save:p1:0:99" in callbacks
     assert "dismiss:p1" in callbacks
+
+
+@pytest.mark.asyncio
+async def test_on_text_message_detects_direction_from_script(monkeypatch: pytest.MonkeyPatch) -> None:
+    update = _update("hello")
+    context = _ctx()
+    context.application.bot_data["review_service"].get_awaiting_card_for_user.return_value = None
+    context.application.bot_data["translation_service"].translate_and_store_pending.return_value = PendingTranslation(
+        id="p1",
+        user_id=123,
+        source_lang="EN",
+        target_lang="RU",
+        source_text="hello",
+        target_text="privet",
+        target_options=("privet",),
+    )
+    monkeypatch.setattr(messages_module, "record_user_seen", AsyncMock(return_value=make_user()))
+
+    await on_text_message(update, context)
+
+    _, kwargs = context.application.bot_data["translation_service"].translate_and_store_pending.await_args
+    assert kwargs["source_lang"] == "EN"
+    assert kwargs["target_lang"] == "RU"
+
+
+@pytest.mark.asyncio
+async def test_on_text_message_detects_cyrillic_direction(monkeypatch: pytest.MonkeyPatch) -> None:
+    update = _update("привет")
+    context = _ctx()
+    context.application.bot_data["review_service"].get_awaiting_card_for_user.return_value = None
+    context.application.bot_data["translation_service"].translate_and_store_pending.return_value = PendingTranslation(
+        id="p1",
+        user_id=123,
+        source_lang="RU",
+        target_lang="EN",
+        source_text="привет",
+        target_text="hello",
+        target_options=("hello",),
+    )
+    monkeypatch.setattr(messages_module, "record_user_seen", AsyncMock(return_value=make_user()))
+
+    await on_text_message(update, context)
+
+    _, kwargs = context.application.bot_data["translation_service"].translate_and_store_pending.await_args
+    assert kwargs["source_lang"] == "RU"
+    assert kwargs["target_lang"] == "EN"
 
 
 def test_grade_keyboard_has_three_grades() -> None:

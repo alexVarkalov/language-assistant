@@ -24,8 +24,6 @@ def _fake_user_record(telegram_id: int = 1) -> SimpleNamespace:
         language_code="en",
         preferred_locale=None,
         timezone="UTC",
-        preferred_source_lang=None,
-        preferred_target_lang=None,
         is_allowed=False,
         created_at=now,
         updated_at=now,
@@ -123,7 +121,6 @@ def test_set_user_allowed_updates_when_present(monkeypatch: pytest.MonkeyPatch) 
     [
         ("_set_user_timezone_sync", "timezone", "Europe/Warsaw"),
         ("_set_user_locale_sync", "preferred_locale", "ru"),
-        ("_set_user_languages_sync", "preferred_source_lang", "PL"),
     ],
 )
 def test_setters_create_record_when_missing(
@@ -147,13 +144,8 @@ def test_setters_create_record_when_missing(
     )
     monkeypatch.setattr("vocab_bot.persistence.users.to_user", lambda r: r)
 
-    if method == "_set_user_languages_sync":
-        user = getattr(db, method)(1, "PL", "RU")
-        assert user.preferred_source_lang == "PL"
-        assert user.preferred_target_lang == "RU"
-    else:
-        user = getattr(db, method)(1, value)
-        assert getattr(user, field) == value
+    user = getattr(db, method)(1, value)
+    assert getattr(user, field) == value
 
     assert session.added
     assert session.committed == 1

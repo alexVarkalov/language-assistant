@@ -39,8 +39,6 @@ class BotUser:
     language_code: str | None
     preferred_locale: str | None
     timezone: str | None
-    preferred_source_lang: str | None
-    preferred_target_lang: str | None
     is_allowed: bool
     created_at: datetime
     updated_at: datetime

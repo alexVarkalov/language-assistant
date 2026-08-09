@@ -3,6 +3,8 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
+from vocab_bot.lang_detect import validate_language_pair
+
 
 @dataclass(frozen=True)
 class Settings:
@@ -12,7 +14,6 @@ class Settings:
     translator: str
     source_lang: str
     target_lang: str
-    available_languages: frozenset[str]
     database_url: str
     due_poll_interval: int
     short_review_interval_minutes: int
@@ -52,8 +53,7 @@ class Settings:
 
         source_lang = os.environ.get("SOURCE_LANG", "PL").strip().upper()
         target_lang = os.environ.get("TARGET_LANG", "RU").strip().upper()
-        available_languages = _parse_languages(os.environ.get("AVAILABLE_LANGUAGES", "EN,RU,PL"))
-        available_languages = frozenset(set(available_languages) | {source_lang, target_lang})
+        validate_language_pair(source_lang, target_lang)
         admin_user_ids = _parse_user_ids(os.environ.get("ADMIN_USER_IDS", ""))
         database_url = os.environ.get(
             "DATABASE_URL",
@@ -70,7 +70,6 @@ class Settings:
             translator=translator,
             source_lang=source_lang,
             target_lang=target_lang,
-            available_languages=available_languages,
             database_url=database_url,
             due_poll_interval=due_poll_interval,
             short_review_interval_minutes=short_review_interval_minutes,
@@ -89,15 +88,3 @@ def _parse_user_ids(raw: str) -> frozenset[int]:
         except ValueError:
             continue
     return frozenset(ids)
-
-
-def _parse_languages(raw: str) -> frozenset[str]:
-    codes: set[str] = set()
-    for part in raw.replace(";", ",").split(","):
-        code = part.strip().upper()
-        if not code:
-            continue
-        codes.add(code)
-    if not codes:
-        return frozenset({"EN", "RU", "PL"})
-    return frozenset(codes)

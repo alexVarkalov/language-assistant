@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from vocab_bot.config import Settings, _parse_languages, _parse_user_ids
+from vocab_bot.config import Settings, _parse_user_ids
+from vocab_bot.lang_detect import UnsupportedLanguagePairError
 
 
 def test_settings_from_env_happy_path(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -11,7 +12,6 @@ def test_settings_from_env_happy_path(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DUE_POLL_INTERVAL", "10")
     monkeypatch.setenv("SOURCE_LANG", "pl")
     monkeypatch.setenv("TARGET_LANG", "ru")
-    monkeypatch.setenv("AVAILABLE_LANGUAGES", "en,ru")
     monkeypatch.setenv("ADMIN_USER_IDS", "1, 2, bad")
     monkeypatch.setenv("SHORT_REVIEW_INTERVAL_MINUTES", "2")
 
@@ -23,8 +23,17 @@ def test_settings_from_env_happy_path(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.short_review_interval_minutes == 2
     assert settings.source_lang == "PL"
     assert settings.target_lang == "RU"
-    assert settings.available_languages == frozenset({"EN", "RU", "PL"})
     assert settings.admin_user_ids == frozenset({1, 2})
+
+
+def test_settings_from_env_rejects_same_script_pair(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("BOT_TOKEN", "token")
+    monkeypatch.setenv("DEEPL_API_KEY", "deepl-key")
+    monkeypatch.setenv("SOURCE_LANG", "en")
+    monkeypatch.setenv("TARGET_LANG", "pl")
+
+    with pytest.raises(UnsupportedLanguagePairError):
+        Settings.from_env()
 
 
 def test_settings_missing_required_token(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -43,7 +52,5 @@ def test_settings_missing_deepl_key(monkeypatch: pytest.MonkeyPatch) -> None:
         Settings.from_env()
 
 
-def test_parse_user_ids_and_languages_helpers() -> None:
+def test_parse_user_ids_helper() -> None:
     assert _parse_user_ids("1;2,abc, 3") == frozenset({1, 2, 3})
-    assert _parse_languages("en;ru, pl") == frozenset({"EN", "RU", "PL"})
-    assert _parse_languages(" ,, ") == frozenset({"EN", "RU", "PL"})

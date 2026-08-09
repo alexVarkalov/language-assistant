@@ -7,7 +7,7 @@ from telegram.ext import ContextTypes
 
 from vocab_bot.config import Settings
 from vocab_bot.handlers.common import (
-    format_langs,
+    format_pair,
     format_user_datetime,
     format_user_display,
     format_user_timezone,
@@ -15,10 +15,9 @@ from vocab_bot.handlers.common import (
     record_user_seen,
     require_admin,
     user_has_access,
-    user_lang_pair,
     user_locale,
 )
-from vocab_bot.handlers.menu import quick_language_pairs_keyboard, settings_menu_keyboard, settings_menu_text
+from vocab_bot.handlers.menu import settings_menu_keyboard, settings_menu_text
 from vocab_bot.i18n import SUPPORTED_LOCALES, t
 from vocab_bot.services import UserService
 
@@ -36,7 +35,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.effective_message.reply_text(t(locale, "access_disabled"))
         return
 
-    source_lang, target_lang = user_lang_pair(user, settings)
+    source_lang, target_lang = settings.source_lang, settings.target_lang
     await update.effective_message.reply_html(
         "\n".join(
             [
@@ -44,15 +43,14 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 t(
                     locale,
                     "start_intro",
-                    source_lang=html.escape(source_lang),
-                    target_lang=html.escape(target_lang),
+                    lang_a=html.escape(source_lang),
+                    lang_b=html.escape(target_lang),
                 ),
                 "",
                 t(locale, "start_review"),
                 "",
                 t(locale, "start_grading"),
-                t(locale, "start_lang_pair", lang_pair=html.escape(format_langs(source_lang, target_lang))),
-                t(locale, "start_set_pair"),
+                t(locale, "start_lang_pair", lang_pair=html.escape(format_pair(source_lang, target_lang))),
                 t(locale, "start_set_timezone"),
                 t(locale, "start_timezone", timezone=html.escape(format_user_timezone(user))),
                 t(locale, "start_locale", locale_label=html.escape(user_locale(user))),
@@ -74,18 +72,13 @@ async def cmd_users(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.effective_message.reply_text("No users recorded yet.")
         return
 
-    lines = ["Recent users:"]
+    lines = [f"Recent users ({format_pair(settings.source_lang, settings.target_lang)}):"]
     for user in users:
         status = "allowed" if user.is_allowed else "blocked"
         display = format_user_display(user)
         timezone = format_user_timezone(user)
         last_seen = format_user_datetime(user.last_seen_at, user)
-        user_source = user.preferred_source_lang or settings.source_lang
-        user_target = user.preferred_target_lang or settings.target_lang
-        lines.append(
-            f"{user.telegram_id} - {display} - {status} - {timezone} - "
-            f"{format_langs(user_source, user_target)} - last seen {last_seen}"
-        )
+        lines.append(f"{user.telegram_id} - {display} - {status} - {timezone} - last seen {last_seen}")
 
     await update.effective_message.reply_text("\n".join(lines))
 
@@ -117,48 +110,6 @@ async def cmd_timezone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     await update.effective_message.reply_text(
         t(locale, "timezone_updated", timezone=format_user_timezone(updated_user))
-    )
-
-
-async def cmd_languages(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if update.effective_user is None or update.effective_message is None:
-        return
-
-    settings: Settings = context.application.bot_data["settings"]
-    user = await record_user_seen(update, context)
-    if user is None:
-        return
-    locale = user_locale(user)
-    if not user_has_access(user, settings):
-        await update.effective_message.reply_text(t(locale, "access_disabled"))
-        return
-
-    current_source, current_target = user_lang_pair(user, settings)
-    allowed = ", ".join(sorted(settings.available_languages))
-    if len(context.args) < 2:
-        await update.effective_message.reply_text(
-            t(
-                locale,
-                "languages_current",
-                lang_pair=format_langs(current_source, current_target),
-                allowed=allowed,
-            )
-        )
-        return
-
-    source_lang = context.args[0].strip().upper()
-    target_lang = context.args[1].strip().upper()
-    invalid = [code for code in (source_lang, target_lang) if code not in settings.available_languages]
-    if invalid:
-        await update.effective_message.reply_text(
-            t(locale, "languages_unsupported", invalid=", ".join(invalid), allowed=allowed)
-        )
-        return
-
-    user_service: UserService = context.application.bot_data["user_service"]
-    await user_service.set_languages(update.effective_user.id, source_lang, target_lang)
-    await update.effective_message.reply_text(
-        t(locale, "languages_updated", lang_pair=format_langs(source_lang, target_lang))
     )
 
 
@@ -209,25 +160,6 @@ async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.effective_message.reply_html(
         settings_menu_text(locale, user, settings),
         reply_markup=settings_menu_keyboard(locale),
-    )
-
-
-async def cmd_quicklangs(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if update.effective_user is None or update.effective_message is None:
-        return
-
-    settings: Settings = context.application.bot_data["settings"]
-    user = await record_user_seen(update, context)
-    if user is None:
-        return
-    locale = user_locale(user)
-    if not user_has_access(user, settings):
-        await update.effective_message.reply_text(t(locale, "access_disabled"))
-        return
-
-    await update.effective_message.reply_text(
-        t(locale, "quick_pair_choose"),
-        reply_markup=quick_language_pairs_keyboard(locale),
     )
 
 

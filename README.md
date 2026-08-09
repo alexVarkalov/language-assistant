@@ -2,10 +2,13 @@
 
 Telegram bot for vocabulary learning with translation and spaced repetition.
 
-It translates incoming words (default: Polish -> Russian), lets you save them, and schedules reviews using an SM-2 style algorithm.
+Each deployment is fixed to one language pair (default: Polish <-> Russian). It auto-detects which of the two
+languages you typed (by script — Cyrillic vs Latin) and translates to the other, lets you save the word, and
+schedules reviews using an SM-2 style algorithm.
 
 ## Features
 
+- Auto-detect which of the deployment's two languages you typed (by script) and translate to the other
 - Translate text with DeepL (`DEEPL_API_KEY` required)
 - Show multiple translation options and save the chosen one
 - Background due-card polling and review prompts
@@ -35,7 +38,6 @@ BOT_TOKEN=your_telegram_bot_token
 TRANSLATOR=deepl
 SOURCE_LANG=PL
 TARGET_LANG=RU
-AVAILABLE_LANGUAGES=EN,RU,PL
 DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/language_assistant
 DUE_POLL_INTERVAL=45
 SHORT_REVIEW_INTERVAL_MINUTES=10
@@ -56,9 +58,11 @@ Environment variables:
 - `TRANSLATOR` (optional): currently only `deepl` is supported. Default: `deepl`.
 - `DEEPL_API_KEY` (required): DeepL API key.
 - `DEEPL_PLAN` (optional): `auto`, `free`, or `pro`. Default: `free`.
-- `SOURCE_LANG` (optional): source language code. Default: `PL`.
-- `TARGET_LANG` (optional): target language code. Default: `RU`.
-- `AVAILABLE_LANGUAGES` (optional): comma-separated language codes users can choose from. Default: `EN,RU,PL`.
+- `SOURCE_LANG` / `TARGET_LANG` (optional): this deployment's fixed language pair. Defaults: `PL` / `RU`.
+  Direction is auto-detected per message by script (Cyrillic vs Latin), so one of the two must be a
+  Cyrillic-script language (e.g. `RU`) and the other Latin-script (e.g. `PL`) — the order between them
+  doesn't matter. To support a different pair, run a separate deployment (new bot token, `.env`, database)
+  rather than reconfiguring this one.
 - `DATABASE_URL` (optional): PostgreSQL SQLAlchemy URL. Default: `postgresql+psycopg://postgres:postgres@localhost:5432/language_assistant`.
 - `DUE_POLL_INTERVAL` (optional): polling interval in seconds (minimum 15). Default: `45`.
 - `SHORT_REVIEW_INTERVAL_MINUTES` (optional): short review delay in minutes used for first review and resets after `Again` (minimum 1). Default: `10`.
@@ -67,13 +71,11 @@ Environment variables:
 ## Bot usage
 
 - Send `/start` to see instructions.
-- Send `/menu` (or `/settings`) to open an interactive settings menu.
-- In `/menu`, you can change interface language and pick a source/target language pair.
-- Send `/quicklangs` to quickly choose one of the common language pairs with buttons.
+- Send `/menu` (or `/settings`) to open an interactive settings menu (interface language).
 - Send `/locale ru` (or `/localization ru`) to switch bot interface language to Russian.
-- Send `/languages EN RU` (or `/langs EN RU`) to set your source/target languages.
 - Send `/timezone Europe/Warsaw` to set your local timezone for review times.
-- Send a word/phrase in the source language.
+- Send a word/phrase in either of the deployment's two languages — the bot detects which one and translates
+  to the other.
 - Click `Save & learn` to create/update a card.
 - When review time comes, the bot sends a prompt.
 - Click reveal, then grade yourself:
@@ -170,7 +172,6 @@ DEEPL_PLAN=free
 
 SOURCE_LANG=PL
 TARGET_LANG=RU
-AVAILABLE_LANGUAGES=EN,RU,PL
 
 DATABASE_URL=postgresql+psycopg://langbot:change_me_strong_password@localhost:5432/language_assistant
 DUE_POLL_INTERVAL=45
@@ -268,6 +269,13 @@ sudo systemctl restart language-assistant-bot
 - **`psycopg-binary ... doesn't have a source distribution or wheel for ... armv7l`**
   - use `psycopg` (not `psycopg[binary]`) in project dependencies, then run `uv lock` and redeploy.
 
+### 10) Supporting another language pair
+
+Each deployment handles exactly one fixed pair (`SOURCE_LANG`/`TARGET_LANG`). To support a different pair
+(e.g. `EN`/`RU`), don't reconfigure this deployment — clone the repo again (or reuse the checkout) and repeat
+steps 2–7 with: a new Telegram bot from `@BotFather` (new `BOT_TOKEN`), a new `.env` with the other pair, a new
+Postgres database/role, and a new systemd service name (e.g. `language-assistant-bot-en-ru`).
+
 ## Development
 
 ### Run Ruff
@@ -336,5 +344,6 @@ git commit
 - `vocab_bot/repositories/`: repository layer over DB methods
 - `vocab_bot/persistence/`: ORM models, datatypes, and DB store mixins
 - `vocab_bot/translate.py`: translation provider (DeepL)
+- `vocab_bot/lang_detect.py`: script-based (Cyrillic vs Latin) direction auto-detection
 - `vocab_bot/srs.py`: SM-2 style scheduling logic
 - `vocab_bot/db.py`: database facade and lifecycle

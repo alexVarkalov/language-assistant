@@ -11,4 +11,4 @@ def test_register_handlers_wires_expected_handlers() -> None:
 
     register_handlers(app)
 
-    assert app.add_handler.call_count == 15
+    assert app.add_handler.call_count == 12

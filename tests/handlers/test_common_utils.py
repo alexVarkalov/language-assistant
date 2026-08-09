@@ -3,46 +3,23 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from tests.helpers import make_user
-from vocab_bot.config import Settings
 from vocab_bot.handlers.common import (
     format_langs,
+    format_pair,
     format_user_datetime,
     format_user_display,
     format_user_timezone,
     parse_target_user_id,
-    user_lang_pair,
     user_timezone,
 )
-
-
-def _settings() -> Settings:
-    return Settings(
-        bot_token="token",
-        deepl_api_key="key",
-        deepl_plan="free",
-        translator="deepl",
-        source_lang="PL",
-        target_lang="RU",
-        available_languages=frozenset({"PL", "RU"}),
-        database_url="postgresql+psycopg://postgres:postgres@localhost:5432/language_assistant",
-        due_poll_interval=45,
-        short_review_interval_minutes=10,
-        admin_user_ids=frozenset(),
-    )
 
 
 def test_format_langs() -> None:
     assert format_langs("EN", "RU") == "EN→RU"
 
 
-def test_user_lang_pair_prefers_user_over_settings() -> None:
-    settings = _settings()
-
-    user = make_user(preferred_source_lang=None, preferred_target_lang=None)
-    assert user_lang_pair(user, settings) == ("PL", "RU")
-
-    user = make_user(preferred_source_lang="EN", preferred_target_lang="PL")
-    assert user_lang_pair(user, settings) == ("EN", "PL")
+def test_format_pair() -> None:
+    assert format_pair("PL", "RU") == "PL↔RU"
 
 
 def test_user_timezone_falls_back_to_utc() -> None:

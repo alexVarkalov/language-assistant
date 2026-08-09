@@ -37,8 +37,5 @@ class UserRepository:
     async def set_locale(self, telegram_id: int, locale: str) -> BotUser:
         return await self._db.set_user_locale(telegram_id, locale)
 
-    async def set_languages(self, telegram_id: int, source_lang: str, target_lang: str) -> BotUser:
-        return await self._db.set_user_languages(telegram_id, source_lang, target_lang)
-
     async def list_recent(self, limit: int = 50) -> list[BotUser]:
         return await self._db.list_users(limit)

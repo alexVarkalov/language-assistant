@@ -16,7 +16,6 @@ from vocab_bot.handlers.common import (
 )
 from vocab_bot.handlers.menu import (
     locale_menu_keyboard,
-    quick_language_pairs_keyboard,
     settings_menu_keyboard,
     settings_menu_text,
 )
@@ -165,13 +164,6 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         )
         return
 
-    if data == "menu:pair":
-        await query.edit_message_text(
-            t(locale, "quick_pair_choose"),
-            reply_markup=quick_language_pairs_keyboard(locale),
-        )
-        return
-
     if data.startswith("menu:set_locale:"):
         requested_locale = data.removeprefix("menu:set_locale:")
         if requested_locale not in {"en", "ru"}:
@@ -191,30 +183,6 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             ),
             reply_markup=settings_menu_keyboard(updated_locale),
             parse_mode="HTML",
-        )
-        return
-
-    if data.startswith("menu:set_pair:"):
-        pair_data = data.removeprefix("menu:set_pair:")
-        source_lang, _, target_lang = pair_data.partition(":")
-        source_lang = source_lang.strip().upper()
-        target_lang = target_lang.strip().upper()
-        invalid = [code for code in (source_lang, target_lang) if code not in settings.available_languages]
-        if invalid:
-            await query.answer(
-                t(
-                    locale,
-                    "languages_unsupported",
-                    invalid=", ".join(invalid),
-                    allowed=", ".join(sorted(settings.available_languages)),
-                ),
-                show_alert=True,
-            )
-            return
-        updated_user = await user_service.set_languages(update.effective_user.id, source_lang, target_lang)
-        updated_locale = user_locale(updated_user)
-        await query.edit_message_text(
-            t(updated_locale, "quick_pair_updated", lang_pair=format_langs(source_lang, target_lang))
         )
         return
 
