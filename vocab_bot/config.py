@@ -18,6 +18,7 @@ class Settings:
     due_poll_interval: int
     short_review_interval_minutes: int
     admin_user_ids: frozenset[int]
+    wordbank_path: str | None
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -63,6 +64,8 @@ class Settings:
             msg = "DATABASE_URL is required"
             raise ValueError(msg)
 
+        wordbank_path = os.environ.get("WORDBANK_PATH", "").strip() or None
+
         return cls(
             bot_token=token,
             deepl_api_key=deepl,
@@ -74,6 +77,7 @@ class Settings:
             due_poll_interval=due_poll_interval,
             short_review_interval_minutes=short_review_interval_minutes,
             admin_user_ids=admin_user_ids,
+            wordbank_path=wordbank_path,
         )
 
 

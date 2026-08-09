@@ -45,6 +45,29 @@ def test_upsert_card_sync_happy_path(monkeypatch: pytest.MonkeyPatch) -> None:
     assert session.committed == 1
 
 
+def test_insert_card_if_missing_sync_inserted(monkeypatch: pytest.MonkeyPatch) -> None:
+    session = FakeSession(execute_rowcount=1)
+    db = CardsDb(session)
+    monkeypatch.setattr("vocab_bot.persistence.cards.pg_insert", lambda _model: FakeInsert())
+
+    when = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
+    inserted = db._insert_card_if_missing_sync(1, "RU", "PL", "кот", "kot", 2.5, 0.0, 0, when)
+
+    assert inserted is True
+    assert session.committed == 1
+
+
+def test_insert_card_if_missing_sync_already_exists(monkeypatch: pytest.MonkeyPatch) -> None:
+    session = FakeSession(execute_rowcount=0)
+    db = CardsDb(session)
+    monkeypatch.setattr("vocab_bot.persistence.cards.pg_insert", lambda _model: FakeInsert())
+
+    when = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
+    inserted = db._insert_card_if_missing_sync(1, "RU", "PL", "кот", "kot", 2.5, 0.0, 0, when)
+
+    assert inserted is False
+
+
 def test_get_card_sync_none(monkeypatch: pytest.MonkeyPatch) -> None:
     session = FakeSession(scalar_results=[None])
     db = CardsDb(session)

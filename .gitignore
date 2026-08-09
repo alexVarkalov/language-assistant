@@ -25,6 +25,9 @@ venv/
 *.sqlite3
 data/
 
+# Copyrighted source material and derived data (never committed to this public repo)
+*.pdf
+
 # Build artifacts
 build/
 dist/

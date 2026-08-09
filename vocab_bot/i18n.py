@@ -75,6 +75,13 @@ _MESSAGES: Mapping[str, Mapping[str, str]] = {
             "<b>Review time</b> ({lang_pair})\nWhat is the <b>{answer_lang}</b> word for:\n<b>{prompt_text}</b>"
         ),
         "due_reveal": "Reveal {answer_lang} word",
+        "wordbank_sections_header": "Choose a topic section:",
+        "wordbank_topics_header": "<b>{title}</b>\nChoose a topic:",
+        "wordbank_topic_header": "<b>{number}. {title}</b> ({count} words)",
+        "wordbank_topic_more": "…and {count} more",
+        "wordbank_button_add_all": "➕ Add all {count} words",
+        "wordbank_added": "Added {added} new words from «{title}» to your cards. {skipped} were already in your list.",
+        "wordbank_topic_missing": "That topic no longer exists.",
     },
     "ru": {
         "access_disabled": "Ваш доступ к боту отключен. Если это ошибка, свяжитесь с администратором.",
@@ -144,6 +151,13 @@ _MESSAGES: Mapping[str, Mapping[str, str]] = {
             "<b>{prompt_text}</b>"
         ),
         "due_reveal": "Показать слово на {answer_lang}",
+        "wordbank_sections_header": "Выберите раздел тем:",
+        "wordbank_topics_header": "<b>{title}</b>\nВыберите тему:",
+        "wordbank_topic_header": "<b>{number}. {title}</b> ({count} слов)",
+        "wordbank_topic_more": "…и еще {count}",
+        "wordbank_button_add_all": "➕ Добавить все {count} слов",
+        "wordbank_added": "Добавлено {added} новых слов из «{title}» в ваши карточки. {skipped} уже были в списке.",
+        "wordbank_topic_missing": "Эта тема больше не существует.",
     },
 }
 

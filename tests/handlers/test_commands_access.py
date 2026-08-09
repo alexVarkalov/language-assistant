@@ -23,6 +23,7 @@ def _settings(admin_ids: frozenset[int] = frozenset()) -> Settings:
         due_poll_interval=45,
         short_review_interval_minutes=10,
         admin_user_ids=admin_ids,
+        wordbank_path=None,
     )
 
 

@@ -89,6 +89,64 @@ class CardStore:
                 raise RuntimeError(msg)
             return int(card_id)
 
+    async def insert_card_if_missing(
+        self,
+        user_id: int,
+        source_lang: str,
+        target_lang: str,
+        source_text: str,
+        target_text: str,
+        ease_factor: float,
+        interval_days: float,
+        repetition: int,
+        next_review_at: datetime,
+    ) -> bool:
+        return await asyncio.to_thread(
+            self._insert_card_if_missing_sync,
+            user_id,
+            source_lang,
+            target_lang,
+            source_text,
+            target_text,
+            ease_factor,
+            interval_days,
+            repetition,
+            next_review_at,
+        )
+
+    def _insert_card_if_missing_sync(
+        self,
+        user_id: int,
+        source_lang: str,
+        target_lang: str,
+        source_text: str,
+        target_text: str,
+        ease_factor: float,
+        interval_days: float,
+        repetition: int,
+        next_review_at: datetime,
+    ) -> bool:
+        with self._session_factory() as session:
+            stmt = pg_insert(CardRecord).values(
+                user_id=user_id,
+                source_lang=source_lang,
+                target_lang=target_lang,
+                source_text=source_text,
+                target_text=target_text,
+                ease_factor=ease_factor,
+                interval_days=interval_days,
+                repetition=repetition,
+                next_review_at=next_review_at.astimezone(UTC).replace(microsecond=0),
+                awaiting_grade=False,
+                created_at=utc_now(),
+            )
+            stmt = stmt.on_conflict_do_nothing(
+                index_elements=["user_id", "source_lang", "target_lang", "source_text"],
+            )
+            result = session.execute(stmt)
+            session.commit()
+            return result.rowcount > 0
+
     async def get_card(self, card_id: int, user_id: int) -> Card | None:
         return await asyncio.to_thread(self._get_card_sync, card_id, user_id)
 

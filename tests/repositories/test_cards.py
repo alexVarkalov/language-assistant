@@ -32,6 +32,29 @@ async def test_card_repository_forwards_upsert_to_db() -> None:
 
 
 @pytest.mark.asyncio
+async def test_card_repository_forwards_insert_if_missing_to_db() -> None:
+    db = AsyncMock()
+    db.insert_card_if_missing.return_value = True
+    repo = CardRepository(db)
+    when = datetime(2026, 1, 1, tzinfo=UTC)
+
+    inserted = await repo.insert_if_missing(
+        user_id=1,
+        source_lang="RU",
+        target_lang="PL",
+        source_text="кот",
+        target_text="kot",
+        ease_factor=2.5,
+        interval_days=0.0,
+        repetition=0,
+        next_review_at=when,
+    )
+
+    assert inserted is True
+    db.insert_card_if_missing.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_card_repository_get_and_list_due() -> None:
     db = AsyncMock()
     db.get_card.return_value = object()

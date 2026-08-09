@@ -24,6 +24,17 @@ def test_settings_from_env_happy_path(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.source_lang == "PL"
     assert settings.target_lang == "RU"
     assert settings.admin_user_ids == frozenset({1, 2})
+    assert settings.wordbank_path is None
+
+
+def test_settings_from_env_reads_wordbank_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("BOT_TOKEN", "token")
+    monkeypatch.setenv("DEEPL_API_KEY", "deepl-key")
+    monkeypatch.setenv("WORDBANK_PATH", " data/ru_pl_dictionary.json ")
+
+    settings = Settings.from_env()
+
+    assert settings.wordbank_path == "data/ru_pl_dictionary.json"
 
 
 def test_settings_from_env_rejects_same_script_pair(monkeypatch: pytest.MonkeyPatch) -> None:

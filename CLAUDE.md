@@ -69,8 +69,9 @@ handlers  →  services  →  repositories  →  persistence (store mixins + ORM
   `create_all` plus additive raw-SQL migrations (`ALTER TABLE ... ADD COLUMN IF NOT EXISTS`) — no Alembic yet.
 
 Dependencies are wired in `__main__.py::_post_init` and stashed on `application.bot_data` (`settings`, `db`,
-`http_client`, `user_service`, `translation_service`, `review_service`) — no global singletons. The due-card
-reminder job (`due_poll`, in `handlers/reviews.py`) is registered there via `job_queue.run_repeating`.
+`http_client`, `user_service`, `translation_service`, `review_service`, and `wordbank_service` when
+`WORDBANK_PATH` is set) — no global singletons. The due-card reminder job (`due_poll`, in
+`handlers/reviews.py`) is registered there via `job_queue.run_repeating`.
 
 ### Conventions worth knowing before editing
 
@@ -80,7 +81,12 @@ reminder job (`due_poll`, in `handlers/reviews.py`) is registered there via `job
   `user_has_access()` / `require_admin()`, don't reimplement checks.
 - **Callback data**: namespaced prefixes (`save:`, `dismiss:`, `reveal:`, `grade:`, `menu:`), routed through one
   `CallbackQueryHandler` regex in `handlers/__init__.py`; parse with `data.split(":", maxsplit=N)` and validate
-  before `int()`.
+  before `int()`. The `wb:` prefix (wordbank) is the one exception — routed through its own conditionally
+  registered `CallbackQueryHandler` in `handlers/wordbank.py`, since the feature itself is conditional.
+- **Wordbank data**: `data/ru_pl_dictionary.json` (loaded via `WORDBANK_PATH`) is derived from a copyrighted
+  commercial dictionary. This repo is public — **never `git add` that JSON or the source PDF**; both are
+  gitignored (`data/`, `*.pdf`). Regenerate with `scripts/parse_ru_pl_dictionary.py` and deploy the file
+  directly to the target host (like `.env`), not via git.
 - **HTML replies**: `reply_html`/`edit_message_text(parse_mode=HTML)`; escape dynamic content with `html.escape()`.
 - **Timestamps**: always UTC-aware (`datetime.now(tz=UTC)`); user timezone stored as IANA string, converted for
   display with `zoneinfo.ZoneInfo`.
@@ -99,6 +105,6 @@ approach:
 | `repositories/` | mock `Database` or fake-backed store |
 | `services/` | mock repositories |
 | `handlers/` | `AsyncMock` services, `SimpleNamespace` fake `Update`/`Context` |
-| `srs.py`, `lang_detect.py` and other pure logic | plain unit tests, no mocks |
+| `srs.py`, `lang_detect.py`, `wordbank.py` and other pure logic | plain unit tests, no mocks |
 
 Async tests use `@pytest.mark.asyncio`. Shared fixtures/factories live in `tests/helpers.py` (`make_user()`).

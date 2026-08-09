@@ -13,9 +13,11 @@ class FakeSession:
     added: list[Any] = field(default_factory=list)
     deleted: list[Any] = field(default_factory=list)
     committed: int = 0
+    execute_rowcount: int = 1
 
-    def execute(self, stmt: Any) -> None:
+    def execute(self, stmt: Any) -> Any:
         self.executed.append(stmt)
+        return SimpleNamespace(rowcount=self.execute_rowcount)
 
     def scalar(self, _stmt: Any) -> Any:
         if self.scalar_results:
@@ -68,4 +70,7 @@ class FakeInsert:
         return self
 
     def on_conflict_do_update(self, **_kwargs: Any) -> FakeInsert:
+        return self
+
+    def on_conflict_do_nothing(self, **_kwargs: Any) -> FakeInsert:
         return self

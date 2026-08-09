@@ -12,6 +12,7 @@ from vocab_bot.handlers.commands import (
 )
 from vocab_bot.handlers.messages import on_text_message
 from vocab_bot.handlers.reviews import due_poll
+from vocab_bot.handlers.wordbank import cmd_wordbank, on_wordbank_callback
 
 __all__ = ["due_poll", "register_handlers"]
 
@@ -28,4 +29,10 @@ def register_handlers(application: Application) -> None:
     application.add_handler(CommandHandler("allow_user", cmd_allow_user))
     application.add_handler(CommandHandler("block_user", cmd_block_user))
     application.add_handler(CallbackQueryHandler(on_callback, pattern=r"^(save|dismiss|reveal|grade|menu):"))
+
+    settings = application.bot_data.get("settings")
+    if settings is not None and settings.wordbank_path is not None:
+        application.add_handler(CommandHandler("wordbank", cmd_wordbank))
+        application.add_handler(CallbackQueryHandler(on_wordbank_callback, pattern=r"^wb:"))
+
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text_message))

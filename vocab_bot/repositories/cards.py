@@ -35,6 +35,31 @@ class CardRepository:
             next_review_at=next_review_at,
         )
 
+    async def insert_if_missing(
+        self,
+        *,
+        user_id: int,
+        source_lang: str,
+        target_lang: str,
+        source_text: str,
+        target_text: str,
+        ease_factor: float,
+        interval_days: float,
+        repetition: int,
+        next_review_at: datetime,
+    ) -> bool:
+        return await self._db.insert_card_if_missing(
+            user_id=user_id,
+            source_lang=source_lang,
+            target_lang=target_lang,
+            source_text=source_text,
+            target_text=target_text,
+            ease_factor=ease_factor,
+            interval_days=interval_days,
+            repetition=repetition,
+            next_review_at=next_review_at,
+        )
+
     async def get(self, card_id: int, user_id: int) -> Card | None:
         return await self._db.get_card(card_id, user_id)
 

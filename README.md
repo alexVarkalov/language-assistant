@@ -67,6 +67,8 @@ Environment variables:
 - `DUE_POLL_INTERVAL` (optional): polling interval in seconds (minimum 15). Default: `45`.
 - `SHORT_REVIEW_INTERVAL_MINUTES` (optional): short review delay in minutes used for first review and resets after `Again` (minimum 1). Default: `10`.
 - `ADMIN_USER_IDS` (optional): comma-separated Telegram user IDs allowed to manage user access.
+- `WORDBANK_PATH` (optional): path to a parsed topic-dictionary JSON file (see "Wordbank" below). Unset by
+  default — the `/wordbank` command only exists on deployments where this is set.
 
 ## Bot usage
 
@@ -82,6 +84,24 @@ Environment variables:
   - `Again` -> reset progress for that card
   - `Good` -> standard interval growth
   - `Easy` -> larger ease factor / spacing
+
+## Wordbank (topic-dictionary batch-add)
+
+On deployments with `WORDBANK_PATH` set, `/wordbank` lets a user browse a pre-parsed topic dictionary
+(section → topic) and add every word in a topic as a card in one tap, skipping any word they've already
+saved. Currently this only exists for the RU↔PL deployment, built from a commercial print dictionary.
+
+**The parsed dictionary JSON (and its source PDF) are intentionally never committed to this repo** — this
+repo is public, and that content is copyrighted. `scripts/parse_ru_pl_dictionary.py` (requires `pdftotext`
+from poppler) regenerates the JSON locally from the source PDF; deploy the resulting file directly to the
+target host outside of git (e.g. `scp`), the same way `.env` is deployed:
+
+```bash
+uv run python scripts/parse_ru_pl_dictionary.py "path/to/source.pdf" data/ru_pl_dictionary.json
+scp data/ru_pl_dictionary.json pi:/path/to/deployment/data/ru_pl_dictionary.json
+```
+
+Then set `WORDBANK_PATH=data/ru_pl_dictionary.json` in that deployment's `.env` and restart the service.
 
 ## User access management
 
@@ -345,5 +365,7 @@ git commit
 - `vocab_bot/persistence/`: ORM models, datatypes, and DB store mixins
 - `vocab_bot/translate.py`: translation provider (DeepL)
 - `vocab_bot/lang_detect.py`: script-based (Cyrillic vs Latin) direction auto-detection
+- `vocab_bot/wordbank.py`: topic-dictionary data model and loader (see "Wordbank" above)
 - `vocab_bot/srs.py`: SM-2 style scheduling logic
 - `vocab_bot/db.py`: database facade and lifecycle
+- `scripts/parse_ru_pl_dictionary.py`: dev-only tool that regenerates the wordbank JSON from the source PDF

@@ -13,6 +13,8 @@ from vocab_bot.db import Database
 from vocab_bot.handlers import due_poll, register_handlers
 from vocab_bot.repositories import CardRepository, PendingRepository, UserRepository
 from vocab_bot.services import ReviewService, TranslationService, UserService
+from vocab_bot.services.wordbank import WordbankService
+from vocab_bot.wordbank import load_wordbank
 
 
 def _load_dotenv_if_present() -> None:
@@ -52,6 +54,9 @@ async def _post_init(application: Application) -> None:
         card_repo,
         short_interval_minutes=settings.short_review_interval_minutes,
     )
+    if settings.wordbank_path is not None:
+        sections = load_wordbank(settings.wordbank_path)
+        application.bot_data["wordbank_service"] = WordbankService(sections, card_repo, settings)
     application.job_queue.run_repeating(
         due_poll,
         interval=settings.due_poll_interval,

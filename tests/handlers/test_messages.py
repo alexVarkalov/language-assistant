@@ -26,6 +26,7 @@ def _settings() -> Settings:
         due_poll_interval=45,
         short_review_interval_minutes=10,
         admin_user_ids=frozenset(),
+        wordbank_path=None,
     )
 
 
