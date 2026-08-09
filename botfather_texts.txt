@@ -9,19 +9,24 @@ locale - Change bot interface language
 timezone - Set your timezone for review reminders
 
 
-2) /setcommands (admin, optional)
+2) /setcommands (wordbank, only on deployments with WORDBANK_PATH set)
+------------------------------------------------------------------------
+wordbank - Browse topics and add all their words as cards in one tap
+
+
+3) /setcommands (admin, optional)
 ---------------------------------
 users - List recently seen users (admin)
 allow_user - Allow a user by Telegram ID (admin)
 block_user - Block a user by Telegram ID (admin)
 
 
-3) /setdescription
+4) /setdescription
 ------------------
 Vocabulary learning bot with translation and spaced repetition. Send a word in either of the bot's two
 languages and it detects which one and translates to the other. Save cards and get review reminders.
 
 
-4) /setabouttext
+5) /setabouttext
 ----------------
 Translate, save, and review vocabulary with spaced repetition. Auto-detects which of the two languages you typed.
