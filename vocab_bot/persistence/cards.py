@@ -142,10 +142,11 @@ class CardStore:
             )
             stmt = stmt.on_conflict_do_nothing(
                 index_elements=["user_id", "source_lang", "target_lang", "source_text"],
-            )
+            ).returning(CardRecord.id)
             result = session.execute(stmt)
+            inserted = result.first() is not None
             session.commit()
-            return result.rowcount > 0
+            return inserted
 
     async def get_card(self, card_id: int, user_id: int) -> Card | None:
         return await asyncio.to_thread(self._get_card_sync, card_id, user_id)

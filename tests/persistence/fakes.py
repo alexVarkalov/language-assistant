@@ -17,7 +17,8 @@ class FakeSession:
 
     def execute(self, stmt: Any) -> Any:
         self.executed.append(stmt)
-        return SimpleNamespace(rowcount=self.execute_rowcount)
+        row = SimpleNamespace(id=1) if self.execute_rowcount > 0 else None
+        return SimpleNamespace(rowcount=self.execute_rowcount, first=lambda: row)
 
     def scalar(self, _stmt: Any) -> Any:
         if self.scalar_results:
@@ -73,4 +74,7 @@ class FakeInsert:
         return self
 
     def on_conflict_do_nothing(self, **_kwargs: Any) -> FakeInsert:
+        return self
+
+    def returning(self, *_args: Any) -> FakeInsert:
         return self
