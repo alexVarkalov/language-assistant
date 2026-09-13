@@ -33,6 +33,10 @@ build/
 dist/
 *.egg-info/
 
+# Mini App frontend (webapp/): dependencies and Vite build output
+webapp/node_modules/
+webapp/dist/
+
 # Tooling / editor
 .DS_Store
 .idea/
