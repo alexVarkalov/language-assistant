@@ -36,29 +36,32 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     source_lang, target_lang = settings.source_lang, settings.target_lang
-    await update.effective_message.reply_html(
-        "\n".join(
-            [
-                t(locale, "start_title"),
-                t(
-                    locale,
-                    "start_intro",
-                    lang_a=html.escape(source_lang),
-                    lang_b=html.escape(target_lang),
-                ),
-                "",
-                t(locale, "start_review"),
-                "",
-                t(locale, "start_grading"),
-                t(locale, "start_lang_pair", lang_pair=html.escape(format_pair(source_lang, target_lang))),
-                t(locale, "start_set_timezone"),
-                t(locale, "start_timezone", timezone=html.escape(format_user_timezone(user))),
-                t(locale, "start_locale", locale_label=html.escape(user_locale(user))),
-                t(locale, "start_set_locale"),
-                t(locale, "start_translator", translator=html.escape(settings.translator)),
-            ]
-        )
+    lines = [
+        t(locale, "start_title"),
+        t(
+            locale,
+            "start_intro",
+            lang_a=html.escape(source_lang),
+            lang_b=html.escape(target_lang),
+        ),
+        "",
+        t(locale, "start_review"),
+        "",
+        t(locale, "start_grading"),
+    ]
+    if settings.webapp_url is not None:
+        lines.append(t(locale, "start_app_hint"))
+    lines.extend(
+        [
+            t(locale, "start_lang_pair", lang_pair=html.escape(format_pair(source_lang, target_lang))),
+            t(locale, "start_set_timezone"),
+            t(locale, "start_timezone", timezone=html.escape(format_user_timezone(user))),
+            t(locale, "start_locale", locale_label=html.escape(user_locale(user))),
+            t(locale, "start_set_locale"),
+            t(locale, "start_translator", translator=html.escape(settings.translator)),
+        ]
     )
+    await update.effective_message.reply_html("\n".join(lines))
 
 
 async def cmd_users(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

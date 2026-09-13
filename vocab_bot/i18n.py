@@ -75,6 +75,10 @@ _MESSAGES: Mapping[str, Mapping[str, str]] = {
             "<b>Review time</b> ({lang_pair})\nWhat is the <b>{answer_lang}</b> word for:\n<b>{prompt_text}</b>"
         ),
         "due_reveal": "Reveal {answer_lang} word",
+        "due_open_app": "Open in app",
+        "menu_button_app": "Reviews",
+        "start_app_hint": "Tap the menu button next to the input field to review cards in the app.",
+        "review_already_graded": "This card was already reviewed (probably in the app).",
         "wordbank_sections_header": "Choose a topic section:",
         "wordbank_topics_header": "<b>{title}</b>\nChoose a topic:",
         "wordbank_topic_header": "<b>{number}. {title}</b> ({count} words)",
@@ -151,6 +155,10 @@ _MESSAGES: Mapping[str, Mapping[str, str]] = {
             "<b>{prompt_text}</b>"
         ),
         "due_reveal": "Показать слово на {answer_lang}",
+        "due_open_app": "Открыть в приложении",
+        "menu_button_app": "Повторения",
+        "start_app_hint": "Кнопка меню рядом с полем ввода открывает приложение для повторений.",
+        "review_already_graded": "Эта карточка уже оценена (вероятно, в приложении).",
         "wordbank_sections_header": "Выберите раздел тем:",
         "wordbank_topics_header": "<b>{title}</b>\nВыберите тему:",
         "wordbank_topic_header": "<b>{number}. {title}</b> ({count} слов)",

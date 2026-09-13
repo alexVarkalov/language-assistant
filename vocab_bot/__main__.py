@@ -1,40 +1,36 @@
 from __future__ import annotations
 
 import logging
-import os
 import sys
 
 import httpx
-from telegram import Update
+from telegram import MenuButtonWebApp, Update, WebAppInfo
 from telegram.ext import Application
 
-from vocab_bot.config import Settings
+from vocab_bot.config import Settings, load_dotenv_if_present
 from vocab_bot.db import Database
 from vocab_bot.handlers import due_poll, register_handlers
+from vocab_bot.i18n import DEFAULT_LOCALE, t
 from vocab_bot.repositories import CardRepository, PendingRepository, UserRepository
 from vocab_bot.services import ReviewService, TranslationService, UserService
 from vocab_bot.services.wordbank import WordbankService
 from vocab_bot.wordbank import load_wordbank
 
+logger = logging.getLogger(__name__)
 
-def _load_dotenv_if_present() -> None:
-    """Minimal .env loader to avoid an extra dependency; ignores parse errors."""
-    path = os.path.join(os.getcwd(), ".env")
-    if not os.path.isfile(path):
+
+async def _configure_menu_button(application: Application, settings: Settings) -> None:
+    if settings.webapp_url is None:
         return
     try:
-        with open(path, encoding="utf-8") as handle:
-            for raw_line in handle:
-                line = raw_line.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                key, value = line.split("=", 1)
-                key = key.strip()
-                value = value.strip().strip('"').strip("'")
-                if key and key not in os.environ:
-                    os.environ[key] = value
-    except OSError:
-        return
+        await application.bot.set_chat_menu_button(
+            menu_button=MenuButtonWebApp(
+                text=t(DEFAULT_LOCALE, "menu_button_app"),
+                web_app=WebAppInfo(url=settings.webapp_url),
+            )
+        )
+    except Exception:
+        logger.exception("failed to set Mini App menu button")
 
 
 async def _post_init(application: Application) -> None:
@@ -63,6 +59,7 @@ async def _post_init(application: Application) -> None:
         first=10,
         name="due_poll",
     )
+    await _configure_menu_button(application, settings)
 
 
 async def _post_shutdown(application: Application) -> None:
@@ -72,7 +69,7 @@ async def _post_shutdown(application: Application) -> None:
 
 
 def main() -> None:
-    _load_dotenv_if_present()
+    load_dotenv_if_present()
     logging.basicConfig(
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         level=logging.INFO,

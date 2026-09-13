@@ -18,7 +18,7 @@ from vocab_bot.handlers.commands import (
 )
 
 
-def _settings() -> Settings:
+def _settings(webapp_url: str | None = None) -> Settings:
     return Settings(
         bot_token="token",
         deepl_api_key="key",
@@ -31,15 +31,16 @@ def _settings() -> Settings:
         short_review_interval_minutes=10,
         admin_user_ids=frozenset({999}),
         wordbank_path=None,
+        webapp_url=webapp_url,
     )
 
 
-def _ctx(args: list[str] | None = None) -> SimpleNamespace:
+def _ctx(args: list[str] | None = None, webapp_url: str | None = None) -> SimpleNamespace:
     return SimpleNamespace(
         args=list(args or []),
         application=SimpleNamespace(
             bot_data={
-                "settings": _settings(),
+                "settings": _settings(webapp_url),
                 "user_service": AsyncMock(),
             }
         ),
@@ -91,6 +92,18 @@ async def test_cmd_start_happy_path(monkeypatch: pytest.MonkeyPatch) -> None:
     await cmd_start(update, context)
 
     update.effective_message.reply_html.assert_awaited_once()
+    assert "menu button" not in update.effective_message.reply_html.await_args.args[0]
+
+
+@pytest.mark.asyncio
+async def test_cmd_start_mentions_app_when_webapp_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+    update = _update()
+    context = _ctx(webapp_url="https://vocab.example.com")
+    monkeypatch.setattr(commands_module, "record_user_seen", AsyncMock(return_value=make_user(preferred_locale="en")))
+
+    await cmd_start(update, context)
+
+    assert "menu button" in update.effective_message.reply_html.await_args.args[0]
 
 
 @pytest.mark.asyncio

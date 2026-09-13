@@ -103,6 +103,9 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         if card is None:
             await query.edit_message_text(t(locale, "review_missing"))
             return
+        if not card.awaiting_grade:
+            await query.edit_message_text(t(locale, "review_already_graded"))
+            return
 
         keyboard = _grade_keyboard(card.id, locale)
         if direction == "target":
@@ -130,6 +133,14 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         awaiting_messages.pop((update.effective_user.id, card_id), None)
         awaiting_directions.pop((update.effective_user.id, card_id), None)
         quality = int(quality_raw)
+        card = await review_service.get_card_for_user(card_id=card_id, user_id=update.effective_user.id)
+        if card is None:
+            await query.edit_message_text(t(locale, "review_missing"))
+            return
+        # The card may have been graded elsewhere (Mini App) while this chat message stayed open.
+        if not card.awaiting_grade:
+            await query.edit_message_text(t(locale, "review_already_graded"))
+            return
         result = await review_service.apply_grade(card_id=card_id, user_id=update.effective_user.id, quality=quality)
         if result is None:
             await query.edit_message_text(t(locale, "review_missing"))

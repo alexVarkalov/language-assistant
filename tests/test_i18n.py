@@ -1,7 +1,13 @@
 from __future__ import annotations
 
 from tests.helpers import make_user
-from vocab_bot.i18n import DEFAULT_LOCALE, normalize_locale, resolve_user_locale, t
+from vocab_bot.i18n import _MESSAGES, DEFAULT_LOCALE, SUPPORTED_LOCALES, normalize_locale, resolve_user_locale, t
+
+
+def test_every_locale_has_the_same_keys() -> None:
+    reference = set(_MESSAGES[DEFAULT_LOCALE])
+    for locale in SUPPORTED_LOCALES:
+        assert set(_MESSAGES[locale]) == reference, locale
 
 
 def test_normalize_locale() -> None:
