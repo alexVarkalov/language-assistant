@@ -7,6 +7,10 @@ from vocab_bot.persistence import BotUser
 from vocab_bot.repositories import UserRepository
 
 
+def user_has_access(user: BotUser, admin_user_ids: frozenset[int]) -> bool:
+    return user.is_allowed or user.telegram_id in admin_user_ids
+
+
 class UserService:
     def __init__(self, user_repo: UserRepository) -> None:
         self._user_repo = user_repo

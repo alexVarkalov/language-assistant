@@ -69,6 +69,12 @@ Environment variables:
 - `ADMIN_USER_IDS` (optional): comma-separated Telegram user IDs allowed to manage user access.
 - `WORDBANK_PATH` (optional): path to a parsed topic-dictionary JSON file (see "Wordbank" below). Unset by
   default — the `/wordbank` command only exists on deployments where this is set.
+- `WEBAPP_URL` (optional): public `https://` URL of the Telegram Mini App (see "Mini App" below). When set,
+  the bot shows a Menu Button and an "Open in app" button on review notifications. Unset by default.
+- `WEBAPP_API_HOST` / `WEBAPP_API_PORT` (optional): bind address/port of the Mini App API process
+  (`python -m vocab_bot.webapi`). Defaults: `127.0.0.1` / `8080`.
+- `WEBAPP_INITDATA_MAX_AGE` (optional): max accepted age of Telegram `initData` in seconds (minimum 60).
+  Default: `86400`.
 
 ## Bot usage
 
@@ -102,6 +108,23 @@ scp data/ru_pl_dictionary.json pi:/path/to/deployment/data/ru_pl_dictionary.json
 ```
 
 Then set `WORDBANK_PATH=data/ru_pl_dictionary.json` in that deployment's `.env` and restart the service.
+
+## Mini App (Telegram Web App)
+
+An optional full-screen review UI that opens inside Telegram. It consists of a Svelte frontend (`webapp/`)
+and a FastAPI backend (`vocab_bot/webapi/`) that runs as a **separate process** next to the bot and talks to
+the same PostgreSQL database:
+
+```bash
+uv sync --extra api
+uv run vocab-bot-api        # or: python -m vocab_bot.webapi  (binds WEBAPP_API_HOST:WEBAPP_API_PORT)
+```
+
+Requests are authenticated with Telegram `initData` (HMAC-signed by Telegram with your bot token), so there
+are no passwords or sessions; access follows the same allow/block list as the chat. Set `WEBAPP_URL` to the
+public `https://` URL where the frontend is served and the bot will show a Menu Button plus an "Open in
+app" button on review notifications. Design, API contract, implementation plan and VPS deployment guide:
+[`docs/miniapp/`](docs/miniapp/README.md).
 
 ## User access management
 

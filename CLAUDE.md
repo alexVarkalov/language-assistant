@@ -15,6 +15,11 @@ This project was scaffolded in Cursor. `CURSOR_BOT_INSTRUCTIONS.md` in the repo 
 Cursor-rules doc this codebase follows (and is also a reusable template for spinning up sibling bots) — read it
 for the full architecture/convention rationale; the essentials are captured below.
 
+**Telegram Mini App**: a Svelte frontend (`webapp/`) plus a FastAPI backend (`vocab_bot/webapi/`, run as a
+separate process via `vocab-bot-api`) give the bot a full-screen review UI. Design, API contract, phased plan
+and VPS deployment live in `docs/miniapp/` — read `docs/miniapp/README.md` first when touching anything
+Mini App related. Everything is gated on `WEBAPP_URL`; unset, the bot is chat-only as before.
+
 ## Commands
 
 ```bash
@@ -23,6 +28,10 @@ uv sync --extra dev
 
 # Run the bot
 uv run vocab-bot            # or: python -m vocab_bot
+
+# Run the Mini App API (separate process; needs `--extra api` installed)
+uv sync --extra dev --extra api
+uv run vocab-bot-api        # or: python -m vocab_bot.webapi
 
 # Lint / format
 uv run --extra dev ruff check .
@@ -49,15 +58,22 @@ disabled in `config.py`). `DATABASE_URL` defaults to a local Postgres instance; 
 Strict 4-layer stack, dependencies flow one way only:
 
 ```
-handlers  →  services  →  repositories  →  persistence (store mixins + ORM)
-                ↓
-        config, i18n, translate.py (external APIs)
+handlers  ─┐
+webapi    ─┴─►  services  →  repositories  →  persistence (store mixins + ORM)
+                    ↓
+            config, i18n, translate.py (external APIs)
 ```
 
 - **`handlers/`** — Telegram `Update`/`ContextTypes` entry points. Thin: guard on missing
   `effective_user`/`effective_message`, call `record_user_seen()`, check `user_has_access()`, delegate everything
   else to services. No SQL, no business logic here. All handlers register in `handlers/__init__.py` via
   `register_handlers(application)` — that's the single source of truth for commands/callbacks wired up.
+- **`webapi/`** — the Mini App's HTTP entry point (FastAPI), a *sibling* of `handlers/`, not a layer above
+  it. `auth.py` validates Telegram `initData` (pure, no FastAPI), `deps.py` turns it into a `BotUser` via
+  `UserService.record_seen()` + `user_has_access()`, routes call one service method and return a pydantic
+  schema. Never imports `handlers/` (that tree imports `telegram`). `create_app(settings, db=...)` builds its
+  own `Database` in the lifespan; tests inject `AsyncMock` services on `app.state` and drive it with
+  `httpx.ASGITransport`.
 - **`services/`** — business logic/orchestration (`UserService`, `TranslationService`, `ReviewService`). Take
   repositories + `Settings` via constructor injection. Never import `telegram`.
 - **`repositories/`** — thin async facades over `Database` store methods, one per aggregate (users, cards,
@@ -90,8 +106,11 @@ Dependencies are wired in `__main__.py::_post_init` and stashed on `application.
 - **HTML replies**: `reply_html`/`edit_message_text(parse_mode=HTML)`; escape dynamic content with `html.escape()`.
 - **Timestamps**: always UTC-aware (`datetime.now(tz=UTC)`); user timezone stored as IANA string, converted for
   display with `zoneinfo.ZoneInfo`.
-- **New feature = touch layers in order**: persistence → repository → service → handler. Never import `telegram`
-  in `services/` or `persistence/`.
+- **New feature = touch layers in order**: persistence → repository → service → handler and/or webapi route.
+  Never import `telegram` in `services/` or `persistence/`; never import `fastapi` outside `webapi/`. Helpers
+  both entry points need live in `services/` (e.g. `user_has_access`, `build_due_card`).
+- **Mini App gating**: everything the bot does for the Mini App (Menu Button, "Open in app" row on due
+  notifications, `/start` hint) is conditional on `settings.webapp_url`, mirroring the `WORDBANK_PATH` pattern.
 
 ### Testing
 
@@ -105,6 +124,7 @@ approach:
 | `repositories/` | mock `Database` or fake-backed store |
 | `services/` | mock repositories |
 | `handlers/` | `AsyncMock` services, `SimpleNamespace` fake `Update`/`Context` |
+| `webapi/` | `tests/webapi/conftest.py`: `make_init_data()` builds signed `initData`; `app` fixture = `create_app()` with `AsyncMock` services on `app.state`; requests via `httpx.AsyncClient(transport=ASGITransport(app))` |
 | `srs.py`, `lang_detect.py`, `wordbank.py` and other pure logic | plain unit tests, no mocks |
 
 Async tests use `@pytest.mark.asyncio`. Shared fixtures/factories live in `tests/helpers.py` (`make_user()`).

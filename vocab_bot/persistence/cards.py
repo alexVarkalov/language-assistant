@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from vocab_bot.persistence.models import CardRecord
@@ -181,6 +181,33 @@ class CardStore:
                 .limit(limit)
             ).all()
             return [to_card(record) for record in rows]
+
+    async def list_due_cards_for_user(self, user_id: int, limit: int = 50) -> list[Card]:
+        return await asyncio.to_thread(self._list_due_cards_for_user_sync, user_id, limit)
+
+    def _list_due_cards_for_user_sync(self, user_id: int, limit: int) -> list[Card]:
+        # Unlike list_due_cards, awaiting cards are included: the Mini App must be able to
+        # review a card the chat has already announced.
+        with self._session_factory() as session:
+            rows = session.scalars(
+                select(CardRecord)
+                .where(CardRecord.user_id == user_id, CardRecord.next_review_at <= utc_now())
+                .order_by(CardRecord.next_review_at.asc())
+                .limit(limit)
+            ).all()
+            return [to_card(record) for record in rows]
+
+    async def count_due_cards_for_user(self, user_id: int) -> int:
+        return await asyncio.to_thread(self._count_due_cards_for_user_sync, user_id)
+
+    def _count_due_cards_for_user_sync(self, user_id: int) -> int:
+        with self._session_factory() as session:
+            count = session.scalar(
+                select(func.count())
+                .select_from(CardRecord)
+                .where(CardRecord.user_id == user_id, CardRecord.next_review_at <= utc_now())
+            )
+            return int(count or 0)
 
     async def mark_awaiting(self, card_id: int, user_id: int, awaiting: bool) -> None:
         await asyncio.to_thread(self._mark_awaiting_sync, card_id, user_id, awaiting)

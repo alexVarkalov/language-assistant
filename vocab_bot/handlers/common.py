@@ -10,6 +10,7 @@ from vocab_bot.config import Settings
 from vocab_bot.i18n import DEFAULT_LOCALE, resolve_user_locale, t
 from vocab_bot.persistence import BotUser
 from vocab_bot.services import UserService
+from vocab_bot.services import user_has_access as _user_has_access
 
 
 def format_langs(source_lang: str, target_lang: str) -> str:
@@ -54,7 +55,7 @@ async def record_user_seen(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 
 def user_has_access(user: BotUser, settings: Settings) -> bool:
-    return user.is_allowed or user.telegram_id in settings.admin_user_ids
+    return _user_has_access(user, settings.admin_user_ids)
 
 
 def user_locale(user: BotUser) -> str:

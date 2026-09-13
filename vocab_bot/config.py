@@ -6,6 +6,26 @@ from dataclasses import dataclass
 from vocab_bot.lang_detect import validate_language_pair
 
 
+def load_dotenv_if_present() -> None:
+    """Minimal .env loader to avoid an extra dependency; ignores parse errors."""
+    path = os.path.join(os.getcwd(), ".env")
+    if not os.path.isfile(path):
+        return
+    try:
+        with open(path, encoding="utf-8") as handle:
+            for raw_line in handle:
+                line = raw_line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                key = key.strip()
+                value = value.strip().strip('"').strip("'")
+                if key and key not in os.environ:
+                    os.environ[key] = value
+    except OSError:
+        return
+
+
 @dataclass(frozen=True)
 class Settings:
     bot_token: str
@@ -19,6 +39,10 @@ class Settings:
     short_review_interval_minutes: int
     admin_user_ids: frozenset[int]
     wordbank_path: str | None
+    webapp_url: str | None = None
+    webapp_api_host: str = "127.0.0.1"
+    webapp_api_port: int = 8080
+    webapp_initdata_max_age: int = 86400
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -66,6 +90,14 @@ class Settings:
 
         wordbank_path = os.environ.get("WORDBANK_PATH", "").strip() or None
 
+        webapp_url = os.environ.get("WEBAPP_URL", "").strip().rstrip("/") or None
+        if webapp_url is not None and not webapp_url.startswith("https://"):
+            msg = "WEBAPP_URL must be an https:// URL (Telegram refuses plain http for Mini Apps)"
+            raise ValueError(msg)
+        webapp_api_host = os.environ.get("WEBAPP_API_HOST", "").strip() or "127.0.0.1"
+        webapp_api_port = _int_env("WEBAPP_API_PORT", default=8080, minimum=1)
+        webapp_initdata_max_age = _int_env("WEBAPP_INITDATA_MAX_AGE", default=86400, minimum=60)
+
         return cls(
             bot_token=token,
             deepl_api_key=deepl,
@@ -78,7 +110,19 @@ class Settings:
             short_review_interval_minutes=short_review_interval_minutes,
             admin_user_ids=admin_user_ids,
             wordbank_path=wordbank_path,
+            webapp_url=webapp_url,
+            webapp_api_host=webapp_api_host,
+            webapp_api_port=webapp_api_port,
+            webapp_initdata_max_age=webapp_initdata_max_age,
         )
+
+
+def _int_env(name: str, *, default: int, minimum: int) -> int:
+    raw = os.environ.get(name, "").strip()
+    try:
+        return max(minimum, int(raw))
+    except ValueError:
+        return default
 
 
 def _parse_user_ids(raw: str) -> frozenset[int]:

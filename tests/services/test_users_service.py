@@ -5,7 +5,19 @@ from unittest.mock import AsyncMock
 import pytest
 
 from tests.helpers import make_user
-from vocab_bot.services.users import UserService
+from vocab_bot.services.users import UserService, user_has_access
+
+
+def test_user_has_access_allowed_user() -> None:
+    assert user_has_access(make_user(is_allowed=True), frozenset()) is True
+
+
+def test_user_has_access_blocked_user() -> None:
+    assert user_has_access(make_user(is_allowed=False), frozenset()) is False
+
+
+def test_user_has_access_admin_bypasses_block() -> None:
+    assert user_has_access(make_user(telegram_id=7, is_allowed=False), frozenset({7})) is True
 
 
 @pytest.mark.asyncio

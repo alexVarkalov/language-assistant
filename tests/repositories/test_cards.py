@@ -69,3 +69,19 @@ async def test_card_repository_get_and_list_due() -> None:
     db.get_card.assert_awaited_once_with(10, 20)
     db.get_awaiting_card.assert_awaited_once_with(20)
     db.list_due_cards.assert_awaited_once_with(7)
+
+
+@pytest.mark.asyncio
+async def test_card_repository_per_user_due_queue() -> None:
+    db = AsyncMock()
+    db.list_due_cards_for_user.return_value = [object()]
+    db.count_due_cards_for_user.return_value = 4
+    repo = CardRepository(db)
+
+    cards = await repo.list_due_for_user(20, limit=7)
+    count = await repo.count_due_for_user(20)
+
+    assert len(cards) == 1
+    assert count == 4
+    db.list_due_cards_for_user.assert_awaited_once_with(20, 7)
+    db.count_due_cards_for_user.assert_awaited_once_with(20)
