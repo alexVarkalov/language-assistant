@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+from telegram.error import BadRequest, Forbidden
 
 from tests.helpers import make_user
 from vocab_bot.config import Settings
@@ -95,3 +96,16 @@ async def test_due_poll_does_not_mark_notified_when_send_fails() -> None:
     await due_poll(context)
 
     assert [call.args[0] for call in notifier.mark_notified.await_args_list] == [20]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("error", [Forbidden("bot was blocked by the user"), BadRequest("Chat not found")])
+async def test_due_poll_marks_unreachable_user_as_notified(error: Exception) -> None:
+    context = _ctx("https://vocab.example.com")
+    notifier = context.application.bot_data["due_notification_service"]
+    notifier.collect.return_value = [DueSummary(user=make_user(telegram_id=10), due_count=2)]
+    context.bot.send_message.side_effect = error
+
+    await due_poll(context)
+
+    notifier.mark_notified.assert_awaited_once_with(10)

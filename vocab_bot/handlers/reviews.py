@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+from telegram.error import BadRequest, Forbidden
 from telegram.ext import ContextTypes
 
 from vocab_bot.config import Settings
@@ -40,6 +41,14 @@ async def due_poll(context: ContextTypes.DEFAULT_TYPE) -> None:
                 parse_mode="HTML",
                 reply_markup=due_summary_keyboard(locale, settings),
             )
-            await notifier.mark_notified(user_id)
+        except (Forbidden, BadRequest) as exc:
+            # Blocked bot / deleted chat / unknown chat: retrying every poll only floods the log, so treat
+            # it as delivered and let the cool-down decide when to try again.
+            logger.warning("due poll: cannot reach user_id=%s (%s); retrying after cool-down", user_id, exc)
         except Exception:
             logger.exception("due poll: failed to notify user_id=%s", user_id)
+            continue
+        try:
+            await notifier.mark_notified(user_id)
+        except Exception:
+            logger.exception("due poll: failed to record reminder for user_id=%s", user_id)
