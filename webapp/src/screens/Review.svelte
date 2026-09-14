@@ -55,7 +55,11 @@
     <span class="hint">{t(locale, "progress", { done: progress.done, total: progress.total })}</span>
   </header>
 
-  <Card {card} revealed={state.phase !== "prompt"} {locale} onreveal={onReveal} />
+  <!-- Keyed so each card mounts fresh on its front face: a reused instance would animate the previous
+       card's un-flip while already showing the next card's answer text. -->
+  {#key card.id}
+    <Card {card} revealed={state.phase !== "prompt"} {locale} onreveal={onReveal} />
+  {/key}
 
   {#if state.error !== null}
     <p class="error">{state.error}</p>
