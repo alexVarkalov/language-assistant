@@ -391,6 +391,31 @@ Restore path is the one used for the Pi migration: `pg_restore -U langbot -h loc
 Test the restore once after setting this up — a backup that has never been restored is a hope, not a
 backup.
 
+## Second language pair on the same host
+
+One VPS can run several deployments side by side; each is fully separate (own bot token, `.env`, database,
+service pair, API port, hostname and certificate) and only shares Postgres, nginx and the frontend build.
+Convention used for the RU↔EN instance next to the RU↔PL one:
+
+| | first deployment | second deployment |
+|---|---|---|
+| checkout | `/home/app/language-assistant` | `/home/app/language-assistant-ru-en` |
+| database | `language_assistant` | `language_assistant_ru_en` (same `langbot` role, extra `~/.pgpass` line) |
+| services | `language-assistant-{bot,api}` | `language-assistant-ru-en-{bot,api}` |
+| `WEBAPP_API_PORT` | `8080` | `8081` |
+| hostname | `vocab.example.com` | `ru-en.vocab.example.com` (with sslip.io: `ru-en.<ip-dashed>.sslip.io`) |
+| nginx site / root | `sites-available/vocab`, `/var/www/vocab` | `sites-available/vocab-ru-en`, `/var/www/vocab-ru-en` |
+
+Steps are sections 2–6 again with those names: `CREATE DATABASE ... OWNER langbot`, a second `git clone` +
+`uv sync`, its own `.env` (different `BOT_TOKEN`, `SOURCE_LANG`/`TARGET_LANG`, `DATABASE_URL`, `WEBAPP_URL`,
+`WEBAPP_API_PORT`), two more systemd units pointing at the second checkout, a second nginx `server` block
+that proxies `/api/` to the second port and reuses `snippets/vocab-headers.conf` and the shared `limit_req`
+zone, `certbot --nginx -d <second hostname>`, and the same `webapp/dist` rsynced to the second root (the
+frontend has no baked-in configuration; it talks to `/api/` on its own origin). Add the second database to
+the loop in `backup-db.sh`. Budget ≈ 150 MB RAM per extra bot + API pair; a 1 GB Droplet with swap holds two.
+
+Updating (section 8) is per checkout: `git pull` + `uv sync` + restart in each directory.
+
 ## Alternative: keep bot + Postgres on the Pi, API on the VPS
 
 Only the API needs to be public; the bot can stay where it is. Then the VPS API must reach the Pi's
