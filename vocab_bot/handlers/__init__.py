@@ -28,7 +28,7 @@ def register_handlers(application: Application) -> None:
     application.add_handler(CommandHandler("users", cmd_users))
     application.add_handler(CommandHandler("allow_user", cmd_allow_user))
     application.add_handler(CommandHandler("block_user", cmd_block_user))
-    application.add_handler(CallbackQueryHandler(on_callback, pattern=r"^(save|dismiss|reveal|grade|menu):"))
+    application.add_handler(CallbackQueryHandler(on_callback, pattern=r"^(save|dismiss|menu):"))
 
     settings = application.bot_data.get("settings")
     if settings is not None and settings.wordbank_path is not None:

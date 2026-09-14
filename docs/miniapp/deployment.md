@@ -161,8 +161,8 @@ WEBAPP_API_PORT=8080
 WEBAPP_INITDATA_MAX_AGE=86400
 ```
 
-Leave `WEBAPP_URL` **commented out** until nginx + TLS + the frontend are live (step 6); the bot only
-advertises the app when this is set.
+`WEBAPP_URL` is required (the bot refuses to start without it), so set it now even though the URL only
+starts working at step 6; until then the Menu Button opens an empty page.
 
 ## 4) systemd units
 
@@ -287,7 +287,7 @@ npm run build                                       # → webapp/dist
 rsync -av --delete dist/ app@vocab.example.com:/var/www/vocab/
 ```
 
-Then on the VPS: uncomment `WEBAPP_URL` in `.env` and `sudo systemctl restart language-assistant-bot`. The bot
+Then on the VPS: `sudo systemctl restart language-assistant-bot` if it was started before the frontend existed. The bot
 sets the Menu Button on startup; if it does not show up in Telegram within a minute, fully close and reopen
 the Telegram client (menu buttons are cached).
 

@@ -20,8 +20,6 @@ logger = logging.getLogger(__name__)
 
 
 async def _configure_menu_button(application: Application, settings: Settings) -> None:
-    if settings.webapp_url is None:
-        return
     try:
         await application.bot.set_chat_menu_button(
             menu_button=MenuButtonWebApp(
@@ -59,15 +57,12 @@ async def _post_init(application: Application) -> None:
         admin_user_ids=settings.admin_user_ids,
         cooldown_minutes=settings.due_notify_cooldown_minutes,
     )
-    if settings.webapp_url is not None:
-        application.job_queue.run_repeating(
-            due_poll,
-            interval=settings.due_poll_interval,
-            first=10,
-            name="due_poll",
-        )
-    else:
-        logger.warning("WEBAPP_URL is not set: due-card reminders are disabled (they open the Mini App)")
+    application.job_queue.run_repeating(
+        due_poll,
+        interval=settings.due_poll_interval,
+        first=10,
+        name="due_poll",
+    )
     await _configure_menu_button(application, settings)
 
 

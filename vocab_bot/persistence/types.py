@@ -27,7 +27,6 @@ class Card:
     interval_days: float
     repetition: int
     next_review_at: datetime
-    awaiting_grade: bool
 
 
 @dataclass(frozen=True)

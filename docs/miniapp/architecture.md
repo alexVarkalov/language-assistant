@@ -224,7 +224,6 @@ docs/miniapp/                    these docs
   first due card after an empty queue is announced on the next poll, then at most once per
   `DUE_NOTIFY_COOLDOWN_MINUTES` while the queue stays non-empty (`users.due_notified_at`, reset when the
   user's queue is empty). Per-card chat notifications are gone; the job only runs when `WEBAPP_URL` is set.
-- **Stale chat messages.** A card graded in the app leaves its chat notification with live buttons; tapping
-  them shows `review_already_graded`. Editing that message from the API would require persisting
-  `notification_message_id` on the card (phase 2 candidate).
+- ~~**Stale chat messages.**~~ Gone with the chat review flow (2026-09-14): `reveal:`/`grade:` callbacks, the
+  typed-guess path and `awaiting_grade` handling were removed; the column stays in the DB, always `False`.
 - **No offline support.** Grades are sent immediately; a failed `POST` is retried once, then surfaced.

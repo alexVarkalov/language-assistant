@@ -13,7 +13,7 @@ schedules reviews using an SM-2 style algorithm.
 - Show multiple translation options and save the chosen one
 - Background due-card polling with one consolidated "N cards to review" reminder per user (edge-triggered,
   repeated at most once per cool-down while the queue stays non-empty); reviews happen in the Mini App
-- Self-grading flow (`Again`, `Good`, `Easy`)
+- Self-grading flow (`Again`, `Good`, `Easy`) in the Telegram Mini App
 - PostgreSQL persistence via SQLAlchemy ORM
 
 ## Tech stack
@@ -73,9 +73,9 @@ Environment variables:
 - `ADMIN_USER_IDS` (optional): comma-separated Telegram user IDs allowed to manage user access.
 - `WORDBANK_PATH` (optional): path to a parsed topic-dictionary JSON file (see "Wordbank" below). Unset by
   default — the `/wordbank` command only exists on deployments where this is set.
-- `WEBAPP_URL` (optional): public `https://` URL of the Telegram Mini App (see "Mini App" below). When set,
-  the bot shows a Menu Button and an "Open in app" button on review reminders. Unset by default — and
-  without it no reminders are sent, since reviewing happens in the app.
+- `WEBAPP_URL` (**required**): public `https://` URL of the Telegram Mini App (see "Mini App" below). The bot
+  sets it as the Menu Button and puts an "Open in app" button on review reminders; reviews happen only there,
+  so the bot refuses to start without it.
 - `WEBAPP_API_HOST` / `WEBAPP_API_PORT` (optional): bind address/port of the Mini App API process
   (`python -m vocab_bot.webapi`). Defaults: `127.0.0.1` / `8080`.
 - `WEBAPP_INITDATA_MAX_AGE` (optional): max accepted age of Telegram `initData` in seconds (minimum 60).
@@ -90,8 +90,9 @@ Environment variables:
 - Send a word/phrase in either of the deployment's two languages — the bot detects which one and translates
   to the other.
 - Click `Save & learn` to create/update a card.
-- When review time comes, the bot sends a prompt.
-- Click reveal, then grade yourself:
+- When cards are due, the bot sends one "N cards to review" reminder with an **Open in app** button (also
+  reachable any time via the Menu Button next to the input field). Reviews happen only in the Mini App.
+- Flip the card, then grade yourself:
   - `Again` -> reset progress for that card
   - `Good` -> standard interval growth
   - `Easy` -> larger ease factor / spacing
@@ -116,7 +117,8 @@ Then set `WORDBANK_PATH=data/ru_pl_dictionary.json` in that deployment's `.env` 
 
 ## Mini App (Telegram Web App)
 
-An optional full-screen review UI that opens inside Telegram. It consists of a Svelte frontend (`webapp/`)
+The full-screen review UI that opens inside Telegram — the only place cards are reviewed. It consists of a
+Svelte frontend (`webapp/`)
 and a FastAPI backend (`vocab_bot/webapi/`) that runs as a **separate process** next to the bot and talks to
 the same PostgreSQL database:
 
@@ -126,9 +128,9 @@ uv run vocab-bot-api        # or: python -m vocab_bot.webapi  (binds WEBAPP_API_
 ```
 
 Requests are authenticated with Telegram `initData` (HMAC-signed by Telegram with your bot token), so there
-are no passwords or sessions; access follows the same allow/block list as the chat. Set `WEBAPP_URL` to the
-public `https://` URL where the frontend is served and the bot will show a Menu Button plus an "Open in
-app" button on review notifications. Design, API contract, implementation plan and VPS deployment guide:
+are no passwords or sessions; access follows the same allow/block list as the chat. `WEBAPP_URL` (required)
+is the public `https://` URL where the frontend is served; the bot uses it for the Menu Button and the "Open
+in app" button on review reminders. Design, API contract, implementation plan and VPS deployment guide:
 [`docs/miniapp/`](docs/miniapp/README.md).
 
 ## User access management

@@ -37,7 +37,8 @@ acceptance checklist in [implementation-plan.md](implementation-plan.md).
 
 ## Non-goals (for now)
 
-- Replacing the chat flow. Users who never open the Mini App see no difference.
+- ~~Replacing the chat flow.~~ Reversed on 2026-09-14: chat reviews were removed, the app is the only review UI
+  and `WEBAPP_URL` is mandatory. Translation/saving/wordbank stay in chat.
 - Per-user language pair selection — still one deployment per pair.
 - Real-time sync between an open Mini App and chat messages (see "Known limitations" in
   [architecture.md](architecture.md)).

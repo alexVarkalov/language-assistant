@@ -25,7 +25,7 @@ def test_settings_from_env_happy_path(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.target_lang == "RU"
     assert settings.admin_user_ids == frozenset({1, 2})
     assert settings.wordbank_path is None
-    assert settings.webapp_url is None
+    assert settings.webapp_url == "https://vocab.example.com"
     assert settings.webapp_api_host == "127.0.0.1"
     assert settings.webapp_api_port == 8080
     assert settings.webapp_initdata_max_age == 86400
@@ -115,3 +115,12 @@ def test_settings_due_notify_cooldown(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setenv("DUE_NOTIFY_COOLDOWN_MINUTES", "90")
     assert Settings.from_env().due_notify_cooldown_minutes == 90
+
+
+def test_settings_from_env_requires_webapp_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("BOT_TOKEN", "token")
+    monkeypatch.setenv("DEEPL_API_KEY", "deepl-key")
+    monkeypatch.delenv("WEBAPP_URL", raising=False)
+
+    with pytest.raises(ValueError, match="WEBAPP_URL is required"):
+        Settings.from_env()

@@ -18,7 +18,8 @@ for the full architecture/convention rationale; the essentials are captured belo
 **Telegram Mini App**: a Svelte frontend (`webapp/`) plus a FastAPI backend (`vocab_bot/webapi/`, run as a
 separate process via `vocab-bot-api`) give the bot a full-screen review UI. Design, API contract, phased plan
 and VPS deployment live in `docs/miniapp/` — read `docs/miniapp/README.md` first when touching anything
-Mini App related. Everything is gated on `WEBAPP_URL`; unset, the bot is chat-only as before.
+Mini App related. `WEBAPP_URL` is required: reviews and due reminders happen only in the app (the chat
+review flow was removed on 2026-09-14); chat still handles translation, saving and the wordbank.
 
 ## Commands
 
@@ -87,7 +88,7 @@ webapi    ─┴─►  services  →  repositories  →  persistence (store mix
 Dependencies are wired in `__main__.py::_post_init` and stashed on `application.bot_data` (`settings`, `db`,
 `http_client`, `user_service`, `translation_service`, `review_service`, `due_notification_service`, and
 `wordbank_service` when `WORDBANK_PATH` is set) — no global singletons. The due-card reminder job (`due_poll`,
-in `handlers/reviews.py`) is registered there via `job_queue.run_repeating`, only when `WEBAPP_URL` is set: it
+in `handlers/reviews.py`) is registered there via `job_queue.run_repeating`: it
 sends one consolidated "N cards to review → Open app" message per user, and `DueNotificationService`
 (`services/notifications.py`) owns the who/when (edge-triggered on an empty→non-empty queue, then at most
 once per `DUE_NOTIFY_COOLDOWN_MINUTES`, persisted as `users.due_notified_at`).
@@ -98,7 +99,7 @@ once per `DUE_NOTIFY_COOLDOWN_MINUTES`, persisted as `users.due_notified_at`).
   the key for every supported locale in the same change — never hardcode English/Russian in handlers.
 - **Access control**: new users default to blocked (`is_allowed=False`); `ADMIN_USER_IDS` always bypass. Use
   `user_has_access()` / `require_admin()`, don't reimplement checks.
-- **Callback data**: namespaced prefixes (`save:`, `dismiss:`, `reveal:`, `grade:`, `menu:`), routed through one
+- **Callback data**: namespaced prefixes (`save:`, `dismiss:`, `menu:`), routed through one
   `CallbackQueryHandler` regex in `handlers/__init__.py`; parse with `data.split(":", maxsplit=N)` and validate
   before `int()`. The `wb:` prefix (wordbank) is the one exception — routed through its own conditionally
   registered `CallbackQueryHandler` in `handlers/wordbank.py`, since the feature itself is conditional.
@@ -112,8 +113,8 @@ once per `DUE_NOTIFY_COOLDOWN_MINUTES`, persisted as `users.due_notified_at`).
 - **New feature = touch layers in order**: persistence → repository → service → handler and/or webapi route.
   Never import `telegram` in `services/` or `persistence/`; never import `fastapi` outside `webapi/`. Helpers
   both entry points need live in `services/` (e.g. `user_has_access`, `build_due_card`).
-- **Mini App gating**: everything the bot does for the Mini App (Menu Button, "Open in app" row on due
-  notifications, `/start` hint) is conditional on `settings.webapp_url`, mirroring the `WORDBANK_PATH` pattern.
+- **Mini App is mandatory**: `Settings.from_env()` raises without `WEBAPP_URL`; Menu Button, the reminder's
+  "Open in app" button and the `/start` hint are unconditional. Only `WORDBANK_PATH` remains an optional feature.
 
 ### Testing
 

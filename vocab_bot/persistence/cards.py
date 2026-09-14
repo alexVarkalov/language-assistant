@@ -60,7 +60,7 @@ class CardStore:
                 interval_days=interval_days,
                 repetition=repetition,
                 next_review_at=next_review_at.astimezone(UTC).replace(microsecond=0),
-                awaiting_grade=False,
+                awaiting_grade=False,  # legacy chat-review column, kept at its default
                 created_at=utc_now(),
             )
             stmt = stmt.on_conflict_do_update(
@@ -71,7 +71,6 @@ class CardStore:
                     "interval_days": stmt.excluded.interval_days,
                     "repetition": stmt.excluded.repetition,
                     "next_review_at": stmt.excluded.next_review_at,
-                    "awaiting_grade": False,
                 },
             )
             session.execute(stmt)
@@ -137,7 +136,7 @@ class CardStore:
                 interval_days=interval_days,
                 repetition=repetition,
                 next_review_at=next_review_at.astimezone(UTC).replace(microsecond=0),
-                awaiting_grade=False,
+                awaiting_grade=False,  # legacy chat-review column, kept at its default
                 created_at=utc_now(),
             )
             stmt = stmt.on_conflict_do_nothing(
@@ -156,38 +155,10 @@ class CardStore:
             record = session.scalar(select(CardRecord).where(CardRecord.id == card_id, CardRecord.user_id == user_id))
             return to_card(record) if record is not None else None
 
-    async def get_awaiting_card(self, user_id: int) -> Card | None:
-        return await asyncio.to_thread(self._get_awaiting_card_sync, user_id)
-
-    def _get_awaiting_card_sync(self, user_id: int) -> Card | None:
-        with self._session_factory() as session:
-            record = session.scalar(
-                select(CardRecord)
-                .where(CardRecord.user_id == user_id, CardRecord.awaiting_grade.is_(True))
-                .order_by(CardRecord.next_review_at.asc())
-                .limit(1)
-            )
-            return to_card(record) if record is not None else None
-
-    async def list_due_cards(self, limit: int = 10) -> list[Card]:
-        return await asyncio.to_thread(self._list_due_cards_sync, limit)
-
-    def _list_due_cards_sync(self, limit: int) -> list[Card]:
-        with self._session_factory() as session:
-            rows = session.scalars(
-                select(CardRecord)
-                .where(CardRecord.awaiting_grade.is_(False), CardRecord.next_review_at <= utc_now())
-                .order_by(CardRecord.next_review_at.asc())
-                .limit(limit)
-            ).all()
-            return [to_card(record) for record in rows]
-
     async def list_due_cards_for_user(self, user_id: int, limit: int = 50) -> list[Card]:
         return await asyncio.to_thread(self._list_due_cards_for_user_sync, user_id, limit)
 
     def _list_due_cards_for_user_sync(self, user_id: int, limit: int) -> list[Card]:
-        # Unlike list_due_cards, awaiting cards are included: the Mini App must be able to
-        # review a card the chat has already announced.
         with self._session_factory() as session:
             rows = session.scalars(
                 select(CardRecord)
@@ -208,16 +179,6 @@ class CardStore:
                 .where(CardRecord.user_id == user_id, CardRecord.next_review_at <= utc_now())
             )
             return int(count or 0)
-
-    async def mark_awaiting(self, card_id: int, user_id: int, awaiting: bool) -> None:
-        await asyncio.to_thread(self._mark_awaiting_sync, card_id, user_id, awaiting)
-
-    def _mark_awaiting_sync(self, card_id: int, user_id: int, awaiting: bool) -> None:
-        with self._session_factory() as session:
-            record = session.scalar(select(CardRecord).where(CardRecord.id == card_id, CardRecord.user_id == user_id))
-            if record is not None:
-                record.awaiting_grade = bool(awaiting)
-            session.commit()
 
     async def update_card_srs(
         self,
@@ -254,7 +215,6 @@ class CardStore:
                 record.interval_days = interval_days
                 record.repetition = repetition
                 record.next_review_at = next_review_at.astimezone(UTC).replace(microsecond=0)
-                record.awaiting_grade = False
             session.commit()
 
     async def count_due_cards_by_user(self) -> dict[int, int]:

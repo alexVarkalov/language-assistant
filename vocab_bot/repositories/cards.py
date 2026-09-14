@@ -63,12 +63,6 @@ class CardRepository:
     async def get(self, card_id: int, user_id: int) -> Card | None:
         return await self._db.get_card(card_id, user_id)
 
-    async def get_awaiting(self, user_id: int) -> Card | None:
-        return await self._db.get_awaiting_card(user_id)
-
-    async def list_due(self, limit: int = 10) -> list[Card]:
-        return await self._db.list_due_cards(limit)
-
     async def list_due_for_user(self, user_id: int, limit: int = 50) -> list[Card]:
         return await self._db.list_due_cards_for_user(user_id, limit)
 
@@ -77,9 +71,6 @@ class CardRepository:
 
     async def count_due_by_user(self) -> dict[int, int]:
         return await self._db.count_due_cards_by_user()
-
-    async def mark_awaiting(self, card_id: int, user_id: int, awaiting: bool) -> None:
-        await self._db.mark_awaiting(card_id, user_id, awaiting)
 
     async def update_srs(
         self,

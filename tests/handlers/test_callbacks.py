@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -10,7 +9,7 @@ from tests.helpers import make_user
 from vocab_bot.config import Settings
 from vocab_bot.handlers import callbacks as callbacks_module
 from vocab_bot.handlers.callbacks import on_callback
-from vocab_bot.persistence.types import Card, PendingTranslation
+from vocab_bot.persistence.types import PendingTranslation
 
 
 def _settings() -> Settings:
@@ -103,119 +102,6 @@ async def test_on_callback_dismiss(monkeypatch: pytest.MonkeyPatch) -> None:
     context.application.bot_data["translation_service"].dismiss_pending.assert_awaited_once_with(
         pending_id="pid", user_id=123
     )
-    update.callback_query.edit_message_text.assert_awaited_once()
-
-
-@pytest.mark.asyncio
-async def test_on_callback_reveal_missing(monkeypatch: pytest.MonkeyPatch) -> None:
-    update = _update("reveal:10:source")
-    context = _ctx()
-    monkeypatch.setattr(callbacks_module, "record_user_seen", AsyncMock(return_value=make_user()))
-    context.application.bot_data["review_service"].get_card_for_user.return_value = None
-
-    await on_callback(update, context)
-
-    update.callback_query.edit_message_text.assert_awaited_once()
-
-
-@pytest.mark.asyncio
-async def test_on_callback_reveal_success(monkeypatch: pytest.MonkeyPatch) -> None:
-    update = _update("reveal:10:target")
-    context = _ctx()
-    context.application.bot_data["awaiting_review_messages"] = {(123, 10): 1}
-    context.application.bot_data["awaiting_review_directions"] = {(123, 10): "target"}
-    monkeypatch.setattr(callbacks_module, "record_user_seen", AsyncMock(return_value=make_user()))
-    context.application.bot_data["review_service"].get_card_for_user.return_value = Card(
-        id=10,
-        user_id=123,
-        source_text="hello",
-        target_text="privet",
-        source_lang="EN",
-        target_lang="RU",
-        ease_factor=2.5,
-        interval_days=1.0,
-        repetition=1,
-        next_review_at=datetime.now(tz=UTC),
-        awaiting_grade=True,
-    )
-
-    await on_callback(update, context)
-
-    update.callback_query.edit_message_text.assert_awaited_once()
-
-
-def _review_card(card_id: int = 11, *, awaiting_grade: bool = True) -> Card:
-    return Card(
-        id=card_id,
-        user_id=123,
-        source_text="hello",
-        target_text="privet",
-        source_lang="EN",
-        target_lang="RU",
-        ease_factor=2.5,
-        interval_days=1.0,
-        repetition=1,
-        next_review_at=datetime.now(tz=UTC),
-        awaiting_grade=awaiting_grade,
-    )
-
-
-@pytest.mark.asyncio
-async def test_on_callback_reveal_already_graded(monkeypatch: pytest.MonkeyPatch) -> None:
-    update = _update("reveal:10:target")
-    context = _ctx()
-    monkeypatch.setattr(callbacks_module, "record_user_seen", AsyncMock(return_value=make_user()))
-    context.application.bot_data["review_service"].get_card_for_user.return_value = _review_card(
-        10, awaiting_grade=False
-    )
-
-    await on_callback(update, context)
-
-    update.callback_query.edit_message_text.assert_awaited_once()
-    assert "already" in update.callback_query.edit_message_text.await_args.args[0]
-
-
-@pytest.mark.asyncio
-async def test_on_callback_grade_missing(monkeypatch: pytest.MonkeyPatch) -> None:
-    update = _update("grade:11:3")
-    context = _ctx()
-    monkeypatch.setattr(callbacks_module, "record_user_seen", AsyncMock(return_value=make_user()))
-    context.application.bot_data["review_service"].get_card_for_user.return_value = None
-
-    await on_callback(update, context)
-
-    update.callback_query.edit_message_text.assert_awaited_once()
-    context.application.bot_data["review_service"].apply_grade.assert_not_awaited()
-
-
-@pytest.mark.asyncio
-async def test_on_callback_grade_already_graded_does_not_regrade(monkeypatch: pytest.MonkeyPatch) -> None:
-    update = _update("grade:11:3")
-    context = _ctx()
-    monkeypatch.setattr(callbacks_module, "record_user_seen", AsyncMock(return_value=make_user()))
-    context.application.bot_data["review_service"].get_card_for_user.return_value = _review_card(awaiting_grade=False)
-
-    await on_callback(update, context)
-
-    context.application.bot_data["review_service"].apply_grade.assert_not_awaited()
-    assert "already" in update.callback_query.edit_message_text.await_args.args[0]
-
-
-@pytest.mark.asyncio
-async def test_on_callback_grade_success(monkeypatch: pytest.MonkeyPatch) -> None:
-    update = _update("grade:11:5")
-    context = _ctx()
-    monkeypatch.setattr(callbacks_module, "record_user_seen", AsyncMock(return_value=make_user()))
-    context.application.bot_data["review_service"].get_card_for_user.return_value = _review_card()
-    context.application.bot_data["review_service"].apply_grade.return_value = SimpleNamespace(
-        next_review_at=datetime.now(tz=UTC),
-        repetition=3,
-        interval_days=4.5,
-        ease_factor=2.7,
-    )
-
-    await on_callback(update, context)
-
     update.callback_query.edit_message_text.assert_awaited_once()
 
 

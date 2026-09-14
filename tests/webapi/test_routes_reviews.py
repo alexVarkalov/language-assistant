@@ -26,7 +26,6 @@ def _card(card_id: int = 42) -> Card:
         interval_days=6.0,
         repetition=2,
         next_review_at=WHEN,
-        awaiting_grade=True,
     )
 
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import html
 from datetime import UTC, datetime, timedelta
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import Update
 from telegram.ext import ContextTypes
 
 from vocab_bot.config import Settings
@@ -20,7 +20,7 @@ from vocab_bot.handlers.menu import (
     settings_menu_text,
 )
 from vocab_bot.i18n import t
-from vocab_bot.services import ReviewService, TranslationService, UserService
+from vocab_bot.services import TranslationService, UserService
 
 
 async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -40,16 +40,9 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await query.answer()
 
     translation_service: TranslationService = context.application.bot_data["translation_service"]
-    review_service: ReviewService = context.application.bot_data["review_service"]
     user_service: UserService = context.application.bot_data["user_service"]
 
     data = query.data
-    awaiting_messages: dict[tuple[int, int], int] = context.application.bot_data.setdefault(
-        "awaiting_review_messages", {}
-    )
-    awaiting_directions: dict[tuple[int, int], str] = context.application.bot_data.setdefault(
-        "awaiting_review_directions", {}
-    )
     if data.startswith("save:"):
         _, pending_id, option_index_raw, source_message_id_raw = (data.split(":", maxsplit=3) + [None, None])[:4]
         option_index = int(option_index_raw) if option_index_raw and option_index_raw.isdigit() else None
@@ -94,72 +87,6 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await query.edit_message_text(t(locale, "pending_dismissed"))
         return
 
-    if data.startswith("reveal:"):
-        _, card_id_raw, direction = (data.split(":", maxsplit=2) + ["source"])[:3]
-        card_id = int(card_id_raw)
-        awaiting_messages.pop((update.effective_user.id, card_id), None)
-        direction = awaiting_directions.pop((update.effective_user.id, card_id), direction)
-        card = await review_service.get_card_for_user(card_id=card_id, user_id=update.effective_user.id)
-        if card is None:
-            await query.edit_message_text(t(locale, "review_missing"))
-            return
-        if not card.awaiting_grade:
-            await query.edit_message_text(t(locale, "review_already_graded"))
-            return
-
-        keyboard = _grade_keyboard(card.id, locale)
-        if direction == "target":
-            prompt = html.escape(card.source_text)
-            answer = html.escape(card.target_text)
-        else:
-            prompt = html.escape(card.target_text)
-            answer = html.escape(card.source_text)
-        await query.edit_message_text(
-            t(
-                locale,
-                "review_prompt",
-                lang_pair=html.escape(format_langs(card.source_lang, card.target_lang)),
-                prompt=prompt,
-                answer=answer,
-            ),
-            reply_markup=keyboard,
-            parse_mode="HTML",
-        )
-        return
-
-    if data.startswith("grade:"):
-        _, card_id_raw, quality_raw = data.split(":", maxsplit=2)
-        card_id = int(card_id_raw)
-        awaiting_messages.pop((update.effective_user.id, card_id), None)
-        awaiting_directions.pop((update.effective_user.id, card_id), None)
-        quality = int(quality_raw)
-        card = await review_service.get_card_for_user(card_id=card_id, user_id=update.effective_user.id)
-        if card is None:
-            await query.edit_message_text(t(locale, "review_missing"))
-            return
-        # The card may have been graded elsewhere (Mini App) while this chat message stayed open.
-        if not card.awaiting_grade:
-            await query.edit_message_text(t(locale, "review_already_graded"))
-            return
-        result = await review_service.apply_grade(card_id=card_id, user_id=update.effective_user.id, quality=quality)
-        if result is None:
-            await query.edit_message_text(t(locale, "review_missing"))
-            return
-
-        human_when = format_user_datetime(result.next_review_at, user)
-        await query.edit_message_text(
-            t(
-                locale,
-                "review_updated",
-                next_review=html.escape(human_when),
-                repetition=result.repetition,
-                interval_days=result.interval_days,
-                ease_factor=result.ease_factor,
-            ),
-            parse_mode="HTML",
-        )
-        return
-
     if data == "menu:open":
         await query.edit_message_text(
             settings_menu_text(locale, user, settings),
@@ -196,15 +123,3 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             parse_mode="HTML",
         )
         return
-
-
-def _grade_keyboard(card_id: int, locale: str) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton(t(locale, "button_again"), callback_data=f"grade:{card_id}:0"),
-                InlineKeyboardButton(t(locale, "button_good"), callback_data=f"grade:{card_id}:3"),
-                InlineKeyboardButton(t(locale, "button_easy"), callback_data=f"grade:{card_id}:5"),
-            ]
-        ]
-    )

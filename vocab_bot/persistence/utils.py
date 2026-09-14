@@ -22,7 +22,6 @@ def to_card(record: CardRecord) -> Card:
         interval_days=record.interval_days,
         repetition=record.repetition,
         next_review_at=record.next_review_at,
-        awaiting_grade=bool(record.awaiting_grade),
     )
 
 

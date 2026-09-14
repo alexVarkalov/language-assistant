@@ -92,17 +92,6 @@ async def test_cmd_start_happy_path(monkeypatch: pytest.MonkeyPatch) -> None:
     await cmd_start(update, context)
 
     update.effective_message.reply_html.assert_awaited_once()
-    assert "menu button" not in update.effective_message.reply_html.await_args.args[0]
-
-
-@pytest.mark.asyncio
-async def test_cmd_start_mentions_app_when_webapp_configured(monkeypatch: pytest.MonkeyPatch) -> None:
-    update = _update()
-    context = _ctx(webapp_url="https://vocab.example.com")
-    monkeypatch.setattr(commands_module, "record_user_seen", AsyncMock(return_value=make_user(preferred_locale="en")))
-
-    await cmd_start(update, context)
-
     assert "menu button" in update.effective_message.reply_html.await_args.args[0]
 
 

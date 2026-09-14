@@ -23,7 +23,6 @@ def _card(card_id: int = 10) -> Card:
         interval_days=1.0,
         repetition=2,
         next_review_at=now,
-        awaiting_grade=False,
     )
 
 
@@ -58,14 +57,8 @@ async def test_review_service_passthrough_methods() -> None:
     service = ReviewService(repo)
 
     await service.get_card_for_user(card_id=1, user_id=2)
-    await service.get_awaiting_card_for_user(user_id=2)
-    await service.list_due_cards(limit=8)
-    await service.mark_awaiting(card_id=1, user_id=2, awaiting=True)
 
     repo.get.assert_awaited_once_with(1, 2)
-    repo.get_awaiting.assert_awaited_once_with(2)
-    repo.list_due.assert_awaited_once_with(limit=8)
-    repo.mark_awaiting.assert_awaited_once_with(1, 2, True)
 
 
 def test_build_due_card_source_direction_prompts_with_target_side() -> None:

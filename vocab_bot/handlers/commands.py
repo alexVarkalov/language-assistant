@@ -49,8 +49,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "",
         t(locale, "start_grading"),
     ]
-    if settings.webapp_url is not None:
-        lines.append(t(locale, "start_app_hint"))
+    lines.append(t(locale, "start_app_hint"))
     lines.extend(
         [
             t(locale, "start_lang_pair", lang_pair=html.escape(format_pair(source_lang, target_lang))),

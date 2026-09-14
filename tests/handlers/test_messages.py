@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -9,8 +8,8 @@ import pytest
 from tests.helpers import make_user
 from vocab_bot.config import Settings
 from vocab_bot.handlers import messages as messages_module
-from vocab_bot.handlers.messages import _grade_keyboard, on_text_message
-from vocab_bot.persistence.types import Card, PendingTranslation
+from vocab_bot.handlers.messages import on_text_message
+from vocab_bot.persistence.types import PendingTranslation
 from vocab_bot.translate import TranslationError
 
 
@@ -69,42 +68,9 @@ async def test_on_text_message_replies_access_disabled(monkeypatch: pytest.Monke
 
 
 @pytest.mark.asyncio
-async def test_on_text_message_handles_awaiting_card_and_delete_failure(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    update = _update("guess")
-    context = _ctx()
-    review_service = context.application.bot_data["review_service"]
-    review_service.get_awaiting_card_for_user.return_value = Card(
-        id=9,
-        user_id=123,
-        source_text="hello",
-        target_text="privet",
-        source_lang="EN",
-        target_lang="RU",
-        ease_factor=2.5,
-        interval_days=1.0,
-        repetition=1,
-        next_review_at=datetime.now(tz=UTC),
-        awaiting_grade=True,
-    )
-    context.application.bot_data["awaiting_review_messages"] = {(123, 9): 77}
-    context.application.bot_data["awaiting_review_directions"] = {(123, 9): "target"}
-    context.bot.delete_message.side_effect = RuntimeError("boom")
-    monkeypatch.setattr(messages_module, "record_user_seen", AsyncMock(return_value=make_user()))
-
-    await on_text_message(update, context)
-
-    context.bot.delete_message.assert_awaited_once_with(chat_id=123, message_id=77)
-    update.effective_message.reply_html.assert_awaited_once()
-    context.application.bot_data["translation_service"].translate_and_store_pending.assert_not_awaited()
-
-
-@pytest.mark.asyncio
 async def test_on_text_message_translate_error_replied(monkeypatch: pytest.MonkeyPatch) -> None:
     update = _update("hello")
     context = _ctx()
-    context.application.bot_data["review_service"].get_awaiting_card_for_user.return_value = None
     context.application.bot_data["translation_service"].translate_and_store_pending.side_effect = TranslationError(
         "nope"
     )
@@ -119,7 +85,6 @@ async def test_on_text_message_translate_error_replied(monkeypatch: pytest.Monke
 async def test_on_text_message_unexpected_error_replied(monkeypatch: pytest.MonkeyPatch) -> None:
     update = _update("hello")
     context = _ctx()
-    context.application.bot_data["review_service"].get_awaiting_card_for_user.return_value = None
     context.application.bot_data["translation_service"].translate_and_store_pending.side_effect = RuntimeError("fail")
     monkeypatch.setattr(messages_module, "record_user_seen", AsyncMock(return_value=make_user()))
 
@@ -132,7 +97,6 @@ async def test_on_text_message_unexpected_error_replied(monkeypatch: pytest.Monk
 async def test_on_text_message_translation_success_builds_buttons(monkeypatch: pytest.MonkeyPatch) -> None:
     update = _update("hello", message_id=99)
     context = _ctx()
-    context.application.bot_data["review_service"].get_awaiting_card_for_user.return_value = None
     context.application.bot_data["translation_service"].translate_and_store_pending.return_value = PendingTranslation(
         id="p1",
         user_id=123,
@@ -158,7 +122,6 @@ async def test_on_text_message_translation_success_builds_buttons(monkeypatch: p
 async def test_on_text_message_detects_direction_from_script(monkeypatch: pytest.MonkeyPatch) -> None:
     update = _update("hello")
     context = _ctx()
-    context.application.bot_data["review_service"].get_awaiting_card_for_user.return_value = None
     context.application.bot_data["translation_service"].translate_and_store_pending.return_value = PendingTranslation(
         id="p1",
         user_id=123,
@@ -181,7 +144,6 @@ async def test_on_text_message_detects_direction_from_script(monkeypatch: pytest
 async def test_on_text_message_detects_cyrillic_direction(monkeypatch: pytest.MonkeyPatch) -> None:
     update = _update("привет")
     context = _ctx()
-    context.application.bot_data["review_service"].get_awaiting_card_for_user.return_value = None
     context.application.bot_data["translation_service"].translate_and_store_pending.return_value = PendingTranslation(
         id="p1",
         user_id=123,
@@ -198,9 +160,3 @@ async def test_on_text_message_detects_cyrillic_direction(monkeypatch: pytest.Mo
     _, kwargs = context.application.bot_data["translation_service"].translate_and_store_pending.await_args
     assert kwargs["source_lang"] == "RU"
     assert kwargs["target_lang"] == "EN"
-
-
-def test_grade_keyboard_has_three_grades() -> None:
-    keyboard = _grade_keyboard(10, "en")
-    callbacks = [button.callback_data for row in keyboard.inline_keyboard for button in row]
-    assert callbacks == ["grade:10:0", "grade:10:3", "grade:10:5"]

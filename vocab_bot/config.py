@@ -92,7 +92,10 @@ class Settings:
         wordbank_path = os.environ.get("WORDBANK_PATH", "").strip() or None
 
         webapp_url = os.environ.get("WEBAPP_URL", "").strip().rstrip("/") or None
-        if webapp_url is not None and not webapp_url.startswith("https://"):
+        if webapp_url is None:
+            msg = "WEBAPP_URL is required (reviews and reminders live in the Mini App)"
+            raise ValueError(msg)
+        if not webapp_url.startswith("https://"):
             msg = "WEBAPP_URL must be an https:// URL (Telegram refuses plain http for Mini Apps)"
             raise ValueError(msg)
         webapp_api_host = os.environ.get("WEBAPP_API_HOST", "").strip() or "127.0.0.1"

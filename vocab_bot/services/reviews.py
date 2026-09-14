@@ -76,9 +76,6 @@ class ReviewService:
     async def get_card_for_user(self, *, card_id: int, user_id: int) -> Card | None:
         return await self._card_repo.get(card_id, user_id)
 
-    async def get_awaiting_card_for_user(self, *, user_id: int) -> Card | None:
-        return await self._card_repo.get_awaiting(user_id)
-
     async def apply_grade(self, *, card_id: int, user_id: int, quality: int) -> GradeResult | None:
         card = await self._card_repo.get(card_id, user_id)
         if card is None:
@@ -100,9 +97,6 @@ class ReviewService:
             repetition=after.repetition,
         )
 
-    async def list_due_cards(self, *, limit: int = 50) -> list[Card]:
-        return await self._card_repo.list_due(limit=limit)
-
     async def list_due_cards_for_user(
         self,
         *,
@@ -117,6 +111,3 @@ class ReviewService:
 
     async def count_due_for_user(self, *, user_id: int) -> int:
         return await self._card_repo.count_due_for_user(user_id)
-
-    async def mark_awaiting(self, *, card_id: int, user_id: int, awaiting: bool) -> None:
-        await self._card_repo.mark_awaiting(card_id, user_id, awaiting)

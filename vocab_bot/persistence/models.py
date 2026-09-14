@@ -58,5 +58,9 @@ class CardRecord(Base):
     interval_days: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     repetition: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     next_review_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    # Legacy: set while a chat-based review was pending. Reviews now happen only in the Mini App; the column
+    # stays (no destructive migrations) but is always False and no longer exposed on `Card`.
+    # Legacy: set while a chat-based review was pending. Reviews now happen only in the Mini App; the column
+    # stays (no destructive migrations) but is always False and no longer exposed on `Card`.
     awaiting_grade: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

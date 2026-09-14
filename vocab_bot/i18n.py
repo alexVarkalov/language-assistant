@@ -18,7 +18,7 @@ _MESSAGES: Mapping[str, Mapping[str, str]] = {
         ),
         "start_review": "After each translation you can save the word to start spaced reviews (SM-2 style intervals).",
         "start_grading": (
-            "During a review I show the translation; reveal the word you are learning, "
+            "Reviews happen in the app: flip the card to see the answer, "
             "then grade yourself with <i>Again</i>, <i>Good</i>, or <i>Easy</i>."
         ),
         "start_lang_pair": "<code>Language pair: {lang_pair}</code>",
@@ -56,32 +56,12 @@ _MESSAGES: Mapping[str, Mapping[str, str]] = {
             "First review around {first_review} ({lang_pair})."
         ),
         "pending_dismissed": "Okay - not saved.",
-        "review_missing": "This review card no longer exists.",
-        "review_prompt": (
-            "<b>Review</b> ({lang_pair})\nPrompt: <b>{prompt}</b>\nAnswer: <b>{answer}</b>\n\nHow hard was it?"
-        ),
-        "review_prompt_with_guess": (
-            "<b>Review</b> ({lang_pair})\nPrompt: <b>{prompt}</b>\nYour guess: <b>{guess}</b>\n"
-            "Answer: <b>{answer}</b>\n\nHow hard was it?"
-        ),
-        "review_updated": (
-            "Updated schedule.\nNext review: <b>{next_review}</b>\nRepetitions: {repetition}, "
-            "interval: {interval_days:.4f} days, EF: {ease_factor:.2f}"
-        ),
-        "button_again": "Again",
-        "button_good": "Good",
-        "button_easy": "Easy",
-        "due_review_time": (
-            "<b>Review time</b> ({lang_pair})\nWhat is the <b>{answer_lang}</b> word for:\n<b>{prompt_text}</b>"
-        ),
-        "due_reveal": "Reveal {answer_lang} word",
         "due_summary_one": "<b>Review time</b>\nYou have <b>{count}</b> card to review.",
         "due_summary_few": "<b>Review time</b>\nYou have <b>{count}</b> cards to review.",
         "due_summary_many": "<b>Review time</b>\nYou have <b>{count}</b> cards to review.",
         "due_open_app": "Open in app",
         "menu_button_app": "Reviews",
         "start_app_hint": "Tap the menu button next to the input field to review cards in the app.",
-        "review_already_graded": "This card was already reviewed (probably in the app).",
         "wordbank_sections_header": "Choose a topic section:",
         "wordbank_topics_header": "<b>{title}</b>\nChoose a topic:",
         "wordbank_topic_header": "<b>{number}. {title}</b> ({count} words)",
@@ -99,7 +79,7 @@ _MESSAGES: Mapping[str, Mapping[str, str]] = {
         ),
         "start_review": "После каждого перевода вы можете сохранить слово и начать интервальные повторения (SM-2).",
         "start_grading": (
-            "Во время повторения я показываю перевод; раскройте изучаемое слово "
+            "Повторения проходят в приложении: переверните карточку, чтобы увидеть ответ, "
             "и оцените себя: <i>Again</i>, <i>Good</i> или <i>Easy</i>."
         ),
         "start_lang_pair": "<code>Языковая пара: {lang_pair}</code>",
@@ -137,34 +117,12 @@ _MESSAGES: Mapping[str, Mapping[str, str]] = {
             "Первое повторение примерно в {first_review} ({lang_pair})."
         ),
         "pending_dismissed": "Хорошо, не сохраняю.",
-        "review_missing": "Карточка повторения больше не существует.",
-        "review_prompt": (
-            "<b>Повторение</b> ({lang_pair})\nПодсказка: <b>{prompt}</b>\nОтвет: <b>{answer}</b>\n\n"
-            "Насколько это было сложно?"
-        ),
-        "review_prompt_with_guess": (
-            "<b>Повторение</b> ({lang_pair})\nПодсказка: <b>{prompt}</b>\nВаш вариант: <b>{guess}</b>\n"
-            "Ответ: <b>{answer}</b>\n\nНасколько это было сложно?"
-        ),
-        "review_updated": (
-            "Расписание обновлено.\nСледующее повторение: <b>{next_review}</b>\n"
-            "Повторений: {repetition}, интервал: {interval_days:.4f} дн., EF: {ease_factor:.2f}"
-        ),
-        "button_again": "Again",
-        "button_good": "Good",
-        "button_easy": "Easy",
-        "due_review_time": (
-            "<b>Пора повторять</b> ({lang_pair})\nКакое слово на <b>{answer_lang}</b> соответствует:\n"
-            "<b>{prompt_text}</b>"
-        ),
-        "due_reveal": "Показать слово на {answer_lang}",
         "due_summary_one": "<b>Пора повторять</b>\nУ вас <b>{count}</b> карточка к повторению.",
         "due_summary_few": "<b>Пора повторять</b>\nУ вас <b>{count}</b> карточки к повторению.",
         "due_summary_many": "<b>Пора повторять</b>\nУ вас <b>{count}</b> карточек к повторению.",
         "due_open_app": "Открыть в приложении",
         "menu_button_app": "Повторения",
         "start_app_hint": "Кнопка меню рядом с полем ввода открывает приложение для повторений.",
-        "review_already_graded": "Эта карточка уже оценена (вероятно, в приложении).",
         "wordbank_sections_header": "Выберите раздел тем:",
         "wordbank_topics_header": "<b>{title}</b>\nВыберите тему:",
         "wordbank_topic_header": "<b>{number}. {title}</b> ({count} слов)",

@@ -24,7 +24,8 @@ block_user - Block a user by Telegram ID (admin)
 4) /setdescription
 ------------------
 Vocabulary learning bot with translation and spaced repetition. Send a word in either of the bot's two
-languages and it detects which one and translates to the other. Save cards and get review reminders.
+languages and it detects which one and translates to the other. Save cards, get review reminders and review
+them in the built-in mini app.
 
 
 5) /setabouttext

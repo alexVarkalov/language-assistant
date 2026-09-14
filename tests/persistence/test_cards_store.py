@@ -85,42 +85,6 @@ def test_get_card_sync_some(monkeypatch: pytest.MonkeyPatch) -> None:
     assert db._get_card_sync(1, 2) == record
 
 
-def test_get_awaiting_card_sync(monkeypatch: pytest.MonkeyPatch) -> None:
-    record = SimpleNamespace(id=1)
-    session = FakeSession(scalar_results=[record])
-    db = CardsDb(session)
-    monkeypatch.setattr(
-        "vocab_bot.persistence.cards.select",
-        lambda *_a, **_k: SimpleNamespace(
-            where=lambda *_a2, **_k2: SimpleNamespace(
-                order_by=lambda *_a3, **_k3: SimpleNamespace(limit=lambda *_a4, **_k4: object())
-            )
-        ),
-    )
-    monkeypatch.setattr("vocab_bot.persistence.cards.to_card", lambda r: r)
-
-    assert db._get_awaiting_card_sync(2) == record
-
-
-def test_list_due_cards_sync(monkeypatch: pytest.MonkeyPatch) -> None:
-    r1 = SimpleNamespace(id=1)
-    r2 = SimpleNamespace(id=2)
-    session = FakeSession(scalars_results=[[r1, r2]])
-    db = CardsDb(session)
-    monkeypatch.setattr(
-        "vocab_bot.persistence.cards.select",
-        lambda *_a, **_k: SimpleNamespace(
-            where=lambda *_a2, **_k2: SimpleNamespace(
-                order_by=lambda *_a3, **_k3: SimpleNamespace(limit=lambda *_a4, **_k4: object())
-            )
-        ),
-    )
-    monkeypatch.setattr("vocab_bot.persistence.cards.to_card", lambda r: r)
-    monkeypatch.setattr("vocab_bot.persistence.cards.utc_now", lambda: datetime(2026, 1, 1, tzinfo=UTC))
-
-    assert db._list_due_cards_sync(limit=10) == [r1, r2]
-
-
 def test_list_due_cards_for_user_sync(monkeypatch: pytest.MonkeyPatch) -> None:
     r1 = SimpleNamespace(id=1)
     r2 = SimpleNamespace(id=2)
@@ -168,24 +132,12 @@ def test_count_due_cards_for_user_sync_none_is_zero(monkeypatch: pytest.MonkeyPa
     assert db._count_due_cards_for_user_sync(user_id=7) == 0
 
 
-def test_mark_awaiting_sync_updates_when_found() -> None:
-    record = SimpleNamespace(awaiting_grade=False)
-    session = FakeSession(scalar_results=[record])
-    db = CardsDb(session)
-
-    db._mark_awaiting_sync(1, 2, True)
-
-    assert record.awaiting_grade is True
-    assert session.committed == 1
-
-
 def test_update_card_srs_sync_updates_fields() -> None:
     record = SimpleNamespace(
         ease_factor=2.5,
         interval_days=1.0,
         repetition=1,
         next_review_at=datetime(2026, 1, 1, tzinfo=UTC),
-        awaiting_grade=True,
     )
     session = FakeSession(scalar_results=[record])
     db = CardsDb(session)
@@ -196,7 +148,6 @@ def test_update_card_srs_sync_updates_fields() -> None:
     assert record.ease_factor == 2.7
     assert record.interval_days == 3.0
     assert record.repetition == 2
-    assert record.awaiting_grade is False
     assert session.committed == 1
 
 
