@@ -197,7 +197,17 @@ curl -s http://127.0.0.1:8080/api/health     # {"status":"ok"}
 
 ## 5) nginx + TLS
 
-`/etc/nginx/sites-available/vocab`:
+`/etc/nginx/snippets/vocab-headers.conf`:
+
+```nginx
+add_header X-Content-Type-Options nosniff always;
+add_header Referrer-Policy no-referrer always;
+# Telegram opens the app inside its own webview; allow framing only by telegram.org/web.telegram.org
+add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://telegram.org; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'self' https://web.telegram.org https://*.telegram.org" always;
+```
+
+`/etc/nginx/sites-available/vocab` (`listen ... http2` is the pre-1.25 syntax; Ubuntu 24.04 ships nginx
+1.24, which rejects the newer `http2 on;` directive):
 
 ```nginx
 server {
@@ -219,10 +229,9 @@ server {
     root /var/www/vocab;                 # webapp/dist copied here
     index index.html;
 
-    add_header X-Content-Type-Options nosniff always;
-    add_header Referrer-Policy no-referrer always;
-    # Telegram opens the app inside its own webview; allow framing only by telegram.org/web.telegram.org
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://telegram.org; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'self' https://web.telegram.org https://*.telegram.org" always;
+    # nginx does NOT inherit add_header into a location that sets its own header (the Cache-Control
+    # blocks below), so the security headers live in a snippet included at every level.
+    include snippets/vocab-headers.conf;
 
     location = /api/health { proxy_pass http://127.0.0.1:8080; access_log off; }
 
@@ -238,8 +247,10 @@ server {
     location / {
         try_files $uri /index.html;
         # hashed assets can be cached hard; index.html must not be
-        location ~* \.(js|css|woff2?)$ { expires 30d; add_header Cache-Control "public, immutable"; }
-        location = /index.html { add_header Cache-Control "no-cache"; }
+        location ~* \.(js|css|woff2?)$ {
+            expires 30d; add_header Cache-Control "public, immutable"; include snippets/vocab-headers.conf;
+        }
+        location = /index.html { add_header Cache-Control "no-cache"; include snippets/vocab-headers.conf; }
     }
 }
 ```
@@ -254,6 +265,8 @@ limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;
 sudo ln -s /etc/nginx/sites-available/vocab /etc/nginx/sites-enabled/vocab
 sudo mkdir -p /var/www/vocab && sudo chown app:app /var/www/vocab
 sudo apt install -y certbot python3-certbot-nginx
+# certbot --nginx needs a server block for the name to exist first; the config above references cert
+# files that do not exist yet, so bootstrap with a plain :80 block, run certbot, then swap in the full config.
 sudo certbot --nginx -d vocab.example.com          # obtains cert, enables auto-renew timer
 sudo nginx -t && sudo systemctl reload nginx
 curl -s https://vocab.example.com/api/health      # {"status":"ok"}
