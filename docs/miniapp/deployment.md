@@ -12,6 +12,86 @@ Assumptions (adjust to taste):
 - domain `vocab.example.com` pointing (A/AAAA) at the VPS
 - service names `language-assistant-bot`, `language-assistant-api`
 
+## 0) Provisioning on DigitalOcean
+
+Recommended provider: DigitalOcean, region **`ams3` (Amsterdam)** — Telegram's Bot API servers are in
+Amsterdam, so latency is single-digit ms; `fra1` (Frankfurt) is the fallback if `ams3` has no capacity.
+Not the absolute cheapest EU VPS, but orderable, familiar, and fully scriptable via `doctl`, which matters
+when the server is managed through Claude rather than by hand.
+
+What it costs (September 2026):
+
+| Item | Monthly |
+|---|---|
+| Basic Droplet `s-1vcpu-1gb` (1 vCPU / 1 GB / 25 GB SSD / 1 TB transfer, IPv4 included) | $6.00 |
+| Weekly backups (20 % of the Droplet; daily is 30 %) | $1.20 |
+| **Total** | **≈ $7.20** |
+
+Do not take the $4 512 MB Droplet: Postgres + bot + API + nginx fit in 1 GB, not in 512 MB, and 10 GB of
+disk leaves no room for dumps. Billing is per second, so a throwaway test Droplet costs cents.
+
+### Via `doctl` (preferred)
+
+Install `doctl` locally (`brew install doctl` / `snap install doctl` / GitHub release), create a
+**read+write API token** in the control panel (API → Tokens), then:
+
+```bash
+doctl auth init                                   # paste the token once; stored in ~/.config/doctl
+doctl compute ssh-key import laptop --public-key-file ~/.ssh/id_ed25519.pub
+doctl compute ssh-key list                        # note the numeric ID
+
+doctl compute droplet create vocab \
+  --region ams3 --size s-1vcpu-1gb --image debian-12-x64 \
+  --ssh-keys <ssh-key-id> --enable-backups --enable-ipv6 --wait
+doctl compute droplet list --format ID,Name,PublicIPv4,PublicIPv6   # note the ID and IPs
+
+# Cloud firewall (separate from ufw): inbound 22/80/443 only, all outbound.
+doctl compute firewall create --name vocab-web \
+  --inbound-rules "protocol:tcp,ports:22,address:0.0.0.0/0,address:::/0 protocol:tcp,ports:80,address:0.0.0.0/0,address:::/0 protocol:tcp,ports:443,address:0.0.0.0/0,address:::/0" \
+  --outbound-rules "protocol:tcp,ports:all,address:0.0.0.0/0,address:::/0 protocol:udp,ports:all,address:0.0.0.0/0,address:::/0 protocol:icmp,address:0.0.0.0/0,address:::/0" \
+  --droplet-ids <droplet-id>
+```
+
+Keep `ufw` on the host too (section 1) — two layers, no cost. Root login is key-only from first boot
+because the key was passed at creation; never set a root password. Create the `A`/`AAAA` records for
+`vocab.example.com` now (DigitalOcean DNS via `doctl compute domain records create`, or wherever the
+zone lives) so they have propagated by the time certbot runs.
+
+### Via the control panel
+
+Same thing clicked through: **Create → Droplets**, region Amsterdam, image Debian 12, Basic / Regular
+$6 plan, authentication *SSH key*, tick *Enable backups* and *IPv6*; then **Networking → Firewalls →
+Create**, inbound TCP 22/80/443, attach to the Droplet.
+
+### Alternatives
+
+Everything from "First login" onward is provider-agnostic (Debian 12 + `ufw`), so any of these works
+unchanged:
+
+| Provider | Plan | Spec | Price | Notes |
+|---|---|---|---|---|
+| netcup (DE) | VPS 500 G12 | 2 vCPU / 4 GB / 128 GB NVMe | ≈ €5.91/month incl. VAT | Cheapest all-in; Nuremberg/Vienna; IPv4 + snapshots included; no CLI, panel only. Pick this if you want to run Claude Code *on* the server (1 GB is too tight for that). |
+| Hetzner Cloud (DE/FI) | CAX11 / CX23 | 2 vCPU / 4 GB / 40 GB | ≈ €5.49–5.99 + €0.50 IPv4 + 20 % backups | Great `hcloud` CLI, but after the June 2026 price rise the cheap CX/CAX line is usually **"not available"**; the orderable floor is CPX12 (≈ €12) / CPX22 (≈ €19.49, ≈ $23) — not worth it for this workload. |
+| OVHcloud (FR) | VPS-1 | 2 vCPU / 4 GB / 40 GB NVMe | from ≈ $4.54/month | Headline price needs a 12–24 month commitment; month-to-month is netcup territory. IPv4 + daily backup included. |
+
+First login, then create the unprivileged `app` user the rest of this doc assumes:
+
+```bash
+ssh root@<server-ip>
+adduser --disabled-password --gecos "" app
+usermod -aG sudo app
+echo "app ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/app
+mkdir -p /home/app/.ssh && cp /root/.ssh/authorized_keys /home/app/.ssh/ && chown -R app:app /home/app/.ssh
+# harden sshd: key-only, no root
+sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin no/; s/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
+systemctl restart ssh
+exit
+ssh app@<server-ip>          # everything below runs as app
+```
+
+Optional but worth it on a box you touch rarely: `sudo apt install -y unattended-upgrades` (security updates
+apply themselves; reboots for kernel updates are manual — check `/var/run/reboot-required`).
+
 ## 1) Base setup
 
 ```bash
@@ -235,6 +315,67 @@ sudo tail -f /var/log/nginx/error.log
 | Menu Button missing | `WEBAPP_URL` unset or not `https://`; bot logs show `set_chat_menu_button` error; restart Telegram client. |
 | Bot works, API 502 | `systemctl status language-assistant-api`; port mismatch between `.env` and nginx. |
 | Reviews graded in app still notify in chat | Expected in MVP (see architecture.md → Known limitations); phase 2. |
+
+## 10) Postgres backups (cron)
+
+DigitalOcean's Droplet backups restore the whole disk; a nightly `pg_dump` is what you actually reach for when a
+bad migration or a mistaken `DELETE` needs undoing. Everything valuable lives in one database, so one dump
+file per day is enough.
+
+```bash
+sudo -u postgres psql -c "ALTER ROLE langbot WITH PASSWORD 'change_me_strong_password';"   # if not set yet
+mkdir -p /home/app/backups /home/app/bin
+cat > /home/app/.pgpass <<'EOF'
+localhost:5432:language_assistant:langbot:change_me_strong_password
+EOF
+chmod 600 /home/app/.pgpass
+```
+
+`/home/app/bin/backup-db.sh`:
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+dir=/home/app/backups
+stamp=$(date -u +%Y-%m-%dT%H%M)
+tmp="$dir/language_assistant-$stamp.dump.tmp"
+out="$dir/language_assistant-$stamp.dump"
+pg_dump -Fc -h localhost -U langbot language_assistant > "$tmp"
+mv "$tmp" "$out"                                   # only complete dumps get the final name
+find "$dir" -name 'language_assistant-*.dump' -mtime +30 -delete
+```
+
+```bash
+chmod +x /home/app/bin/backup-db.sh
+/home/app/bin/backup-db.sh && ls -la /home/app/backups      # run once by hand
+crontab -e
+```
+
+Cron line (03:15 UTC daily; the server clock is UTC, and review load is lowest then for a European user
+base). Output goes to a log file so a failure is visible in the next `ls`:
+
+```cron
+15 3 * * * /home/app/bin/backup-db.sh >> /home/app/backups/backup.log 2>&1
+```
+
+Get the dumps **off the box** too — a backup on the same disk does not survive the disk. The dumps are
+tiny (kilobytes to a few MB), so the cheapest option is simply pulling the directory to your laptop or the
+Pi every so often (or from the Pi's own cron):
+
+```bash
+rsync -a app@vocab.example.com:/home/app/backups/ ~/backups/language-assistant/
+```
+
+If you want it pushed from the server instead: **DigitalOcean Spaces** ($5/month for 250 GiB,
+S3-compatible, `rclone copy /home/app/backups spaces:language-assistant` appended to the script) is overkill
+at that size; a Hetzner **Storage Box** (BX11, ~€3/month, 1 TB, `rsync` over SSH) works from any provider
+and is cheaper.
+
+Restore path is the one used for the Pi migration: `pg_restore -U langbot -h localhost -d language_assistant --no-owner --no-privileges <file>`
+(into an empty database: `dropdb`/`createdb` first, with both services stopped).
+
+Test the restore once after setting this up — a backup that has never been restored is a hope, not a
+backup.
 
 ## Alternative: keep bot + Postgres on the Pi, API on the VPS
 
