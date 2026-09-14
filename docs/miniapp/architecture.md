@@ -1,5 +1,11 @@
 # Mini App architecture
 
+> **Design document (2026-09-13).** Implemented as written on 2026-09-13; the following parts were then
+> superseded on 2026-09-14 and are kept only for context (marked *Superseded* below):
+> the chat review flow, `awaiting_grade` semantics and the double-grading guard (chat reviews removed),
+> the per-card notification with `?card=` (replaced by one consolidated reminder per user, see
+> `services/notifications.py`), and everything "conditional on `WEBAPP_URL`" (now mandatory).
+
 ## Components
 
 ```
@@ -16,8 +22,9 @@
            └────────► PostgreSQL ◄────────┘
 ```
 
-- **Bot process** (`python -m vocab_bot`) — unchanged, plus: a `web_app` button on due-review notifications,
-  a persistent Menu Button that opens the app, and a guard against grading a card twice.
+- **Bot process** (`python -m vocab_bot`) — chat handles translation/saving/wordbank; reviews are delegated to
+  the app via a persistent Menu Button and a consolidated "N cards to review → Open app" reminder
+  (`due_poll` + `DueNotificationService`).
 - **API process** (`python -m vocab_bot.webapi`) — FastAPI app. Validates `initData`, calls the same
   `ReviewService`/`UserService` the handlers use, returns JSON. Owns its own `Database` instance.
 - **Frontend** (`webapp/`, Svelte + Vite) — built to static files, served by nginx on the same origin as the API.
@@ -92,6 +99,9 @@ open app ──► GET /api/me ──► GET /api/reviews/queue
 
 ### Queue semantics vs the chat flow
 
+*Superseded 2026-09-14: the chat flow and `awaiting_grade` handling are gone; the per-user queue is simply
+`next_review_at <= now` for that user. The column remains in the DB, always `False`.*
+
 Today `CardStore.list_due_cards()` is **global** (all users, for `due_poll`) and **excludes**
 `awaiting_grade=True` cards — those are the ones a chat notification has already been sent for. The Mini App
 queue needs the opposite: **one user, including awaiting cards** (the user should be able to review a card in
@@ -103,6 +113,8 @@ graded in the app drops out of the chat's "awaiting" state automatically.
 
 ### Preventing double grading
 
+*Superseded 2026-09-14: no chat grading exists any more, so nothing to guard.*
+
 A user can grade a card in the app while the chat notification (with its `reveal:`/`grade:` buttons) is still
 on screen. The bot's in-memory `awaiting_review_messages` map lives in a different process, so the API cannot
 edit that message. Instead the chat handlers become defensive:
@@ -113,6 +125,9 @@ edit that message. Instead the chat handlers become defensive:
 This is a small, safe change: in the normal chat flow the flag is `True` from `due_poll` until `grade:` runs.
 
 ## Launch points
+
+*Superseded 2026-09-14: (1) is now one consolidated reminder per user opening the app root, not a per-card
+`?card=` link; (2) and (3) are unconditional because `WEBAPP_URL` is required.*
 
 1. **Due-review notification** — `due_poll` adds a second row under the existing "Reveal" button:
    `InlineKeyboardButton(t(locale, "due_open_app"), web_app=WebAppInfo(url=f"{WEBAPP_URL}/?card={card.id}"))`.
@@ -167,8 +182,9 @@ vocab_bot/
   services/reviews.py            + list_due_cards_for_user, DueCard DTO with resolved prompt/answer/direction
   services/users.py              + user_has_access(user, admin_user_ids)  (moved from handlers/common.py)
   handlers/common.py             user_has_access delegates to services.users
-  handlers/reviews.py            due_poll: "Open in app" web_app row when webapp_url set; uses DueCard
-  handlers/callbacks.py          reveal:/grade: guard on awaiting_grade
+  handlers/reviews.py            due_poll: consolidated reminder (superseded the per-card row on 2026-09-14)
+  services/notifications.py      DueNotificationService (added 2026-09-14)
+  handlers/callbacks.py          (reveal:/grade: removed 2026-09-14)
   handlers/commands.py           /start hint
   i18n.py                        + due_open_app, menu_button_app, start_app_hint, review_already_graded (en + ru)
   __main__.py                    _post_init: set_chat_menu_button when webapp_url set

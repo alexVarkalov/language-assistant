@@ -1,5 +1,10 @@
 # Implementation plan
 
+> **Status:** Phase 1 (steps 1–7) is complete and deployed (2026-09-14). The parts of step 5 about the
+> `reveal:`/`grade:` guard and `review_already_graded` are historical — the chat review flow was removed the
+> next day. Phase 2's "consolidated chat notification" shipped without a `[Review here]` button and with the
+> cool-down persisted as `users.due_notified_at` (`services/notifications.py`). Remaining phases are unchanged.
+
 Ordered so that every step leaves `main` green (`ruff` + `pytest`) and deployable. Steps 1–5 are pure backend
 and can ship before any frontend exists; the bot keeps behaving exactly as today until `WEBAPP_URL` is set.
 
@@ -253,9 +258,8 @@ shows "Open in app".
 - `GET /api/stats`: totals (cards, due now, learned = `repetition >= N`), reviews-per-day for the last 30 days
   (needs a `review_log` table: `card_id`, `user_id`, `quality`, `graded_at` — written by `apply_grade`; additive
   migration in `Database._init_sync`), current streak.
-- Consolidated chat notification: `due_poll` sends one "N cards due" message per user with
-  `[Open app] [Review here]` instead of one per card; `[Review here]` starts the existing per-card chat flow.
-  Add a per-user cool-down (`users.last_due_notified_at`) so the poll does not re-ping every 45 s.
+- ~~Consolidated chat notification~~ — done 2026-09-14 (`[Open app]` only; cool-down in `users.due_notified_at`,
+  reset when the user's queue is empty so the next due card is announced promptly).
 - Optional: persist `notification_message_id` on `cards` so the API can edit/delete the stale chat message
   after an in-app grade (API process gets a `telegram.Bot` instance — still no `telegram` import in
   `services/`, the call lives in `webapi/`).

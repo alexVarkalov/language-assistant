@@ -1,8 +1,12 @@
 # Telegram Mini App — planning docs
 
-A Telegram Mini App (Web App) that opens full-screen inside Telegram and gives the bot a real UI for
-spaced-repetition reviews (and, later, stats and card management). The chat-based flow keeps working
-unchanged; the Mini App is an additional entry point on top of the same services and database.
+A Telegram Mini App (Web App) that opens full-screen inside Telegram and is the bot's UI for
+spaced-repetition reviews (and, later, stats and card management). Since 2026-09-14 it is the **only** place
+cards are reviewed: the chat keeps translation, saving and the wordbank, and sends one consolidated
+"N cards to review → Open app" reminder per user.
+
+`architecture.md` and `implementation-plan.md` are the original design documents (2026-09-13); each carries a
+banner listing what has since been superseded. `api.md` and `deployment.md` are kept current.
 
 | Doc | What it covers |
 |---|---|
@@ -17,11 +21,16 @@ unchanged; the Mini App is an additional entry point on top of the same services
 |---|---|
 | 1–5 backend (`persistence` → `webapi/`, bot integration behind `WEBAPP_URL`) | **Done.** 215 pytest tests + `pre-commit` green; live smoke test over real uvicorn/HTTP (auth 401/403, queue, grade, 404, 422) passed with an in-memory `Database` stand-in. |
 | 6 frontend (`webapp/`, Svelte 5 + Vite) | **Done.** `npm test` (14 vitest), `npm run check` (0 errors/warnings), `npm run build` (≈40 kB JS, 15 kB gzip). |
-| 7 deployment | **Not started** — follow [deployment.md](deployment.md). |
+| 7 deployment | **Done (2026-09-14).** DigitalOcean Droplet per [deployment.md](deployment.md); verified inside the Telegram client and against real PostgreSQL. |
 
-Not yet verified: the app running *inside the Telegram client* (needs the public HTTPS deployment) and the
-API against a real PostgreSQL (no local instance in the dev environment). Both are covered by the MVP
-acceptance checklist in [implementation-plan.md](implementation-plan.md).
+### Since the MVP (2026-09-14)
+
+- Consolidated due reminder with per-user cool-down (`DueNotificationService`, `DUE_NOTIFY_COOLDOWN_MINUTES`),
+  replacing the per-card chat notification.
+- Chat review flow removed (`reveal:`/`grade:` callbacks, typed guesses, `awaiting_grade` handling);
+  `WEBAPP_URL` is mandatory.
+- Frontend: each card mounts fresh (`{#key card.id}`) so the previous card's un-flip never shows the next answer.
+- A second deployment (RU↔EN) runs on the same host — see "Second language pair" in deployment.md.
 
 ## Decisions (2026-09-13)
 

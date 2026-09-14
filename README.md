@@ -110,7 +110,7 @@ target host outside of git (e.g. `scp`), the same way `.env` is deployed:
 
 ```bash
 uv run python scripts/parse_ru_pl_dictionary.py "path/to/source.pdf" data/ru_pl_dictionary.json
-scp data/ru_pl_dictionary.json pi:/path/to/deployment/data/ru_pl_dictionary.json
+scp data/ru_pl_dictionary.json <host>:/home/app/language-assistant/data/ru_pl_dictionary.json
 ```
 
 Then set `WORDBANK_PATH=data/ru_pl_dictionary.json` in that deployment's `.env` and restart the service.
@@ -146,9 +146,20 @@ The bot stores this on the user record and uses it when showing review dates and
 
 Set `ADMIN_USER_IDS` to your Telegram user ID before using these commands.
 
-## Deploy on Raspberry Pi
+## Deploy
 
-This section describes a production-style deployment on Raspberry Pi OS with:
+**Production runs on a VPS** — bot, Mini App API, Postgres and nginx on one host, two language pairs side by
+side. The maintained guide is [`docs/miniapp/deployment.md`](docs/miniapp/deployment.md) (provisioning, base
+setup, Postgres, systemd units, nginx + TLS, frontend publish, updating, backups, second language pair).
+
+### Legacy: Raspberry Pi (chat-only era)
+
+The section below predates the Mini App and is kept for the Postgres/systemd/`uv` steps, which are still
+accurate. Note that `WEBAPP_URL` is now **required** and the Mini App needs a public `https://` origin, so a
+Pi on a home network alone is no longer a complete deployment — pair it with a VPS or a tunnel for the
+frontend + API (see the "Alternative" section at the end of `deployment.md`).
+
+This section describes a deployment on Raspberry Pi OS with:
 
 - `systemd` service for auto-start/restart
 - local PostgreSQL
@@ -321,12 +332,15 @@ sudo systemctl restart language-assistant-bot
 
 ### 10) Supporting another language pair
 
-Each deployment handles exactly one fixed pair (`SOURCE_LANG`/`TARGET_LANG`). To support a different pair
-(e.g. `EN`/`RU`), don't reconfigure this deployment — clone the repo again (or reuse the checkout) and repeat
-steps 2–7 with: a new Telegram bot from `@BotFather` (new `BOT_TOKEN`), a new `.env` with the other pair, a new
-Postgres database/role, and a new systemd service name (e.g. `language-assistant-bot-en-ru`).
+Each deployment handles exactly one fixed pair (`SOURCE_LANG`/`TARGET_LANG`). To support a different pair,
+don't reconfigure this deployment — run a second one next to it: new Telegram bot from `@BotFather` (new
+`BOT_TOKEN`), its own checkout, `.env`, database, service pair, API port and hostname. The exact convention
+is in `docs/miniapp/deployment.md`, "Second language pair on the same host".
 
 ## Development
+
+Backend: `uv sync --extra dev --extra api`, then `uv run --extra dev pytest`. Frontend (`webapp/`, Node ≥ 20):
+`npm ci`, `npm test`, `npm run check`, `npm run build`. Pre-commit runs ruff + pytest on every commit.
 
 ### Run Ruff
 
@@ -398,4 +412,8 @@ git commit
 - `vocab_bot/wordbank.py`: topic-dictionary data model and loader (see "Wordbank" above)
 - `vocab_bot/srs.py`: SM-2 style scheduling logic
 - `vocab_bot/db.py`: database facade and lifecycle
+- `vocab_bot/services/notifications.py`: who gets the consolidated "cards to review" reminder and when
+- `vocab_bot/webapi/`: FastAPI backend of the Mini App (separate process, `initData` auth)
+- `webapp/`: Svelte frontend of the Mini App (built locally, deployed as static files)
+- `docs/miniapp/`: Mini App design, API contract, implementation plan and the VPS deployment guide
 - `scripts/parse_ru_pl_dictionary.py`: dev-only tool that regenerates the wordbank JSON from the source PDF

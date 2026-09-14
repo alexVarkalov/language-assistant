@@ -47,13 +47,13 @@ Current user and deployment facts the UI needs on boot.
 - `locale` — resolved with the existing `resolve_user_locale(user)` (`preferred_locale` → `language_code` →
   default), so the app shows the same language as the chat.
 - `timezone` — IANA name or `"UTC"` when unset (mirrors `format_user_timezone`).
-- `due_count` — number of cards with `next_review_at <= now` for this user (any `awaiting_grade`).
+- `due_count` — number of cards with `next_review_at <= now` for this user.
 
 ### `GET /api/reviews/queue?limit=50&first=<card_id>`
 
 Due cards for the current user, oldest due first. `limit` 1–100 (default 50). `first` is optional: if that card
-is in the result it is moved to index 0 (used by the `?card=` deep link from a chat notification). Cards with
-`awaiting_grade = true` **are** included.
+is in the result it is moved to index 0 (the `?card=` deep link; currently unused since the consolidated
+reminder opens the app root, but still supported).
 
 ```json
 {
@@ -99,9 +99,9 @@ API restricts to these three to keep both UIs identical).
 }
 ```
 
-Idempotency: not guaranteed — grading twice applies SM-2 twice, exactly as two `grade:` taps would. The client
-disables the buttons while the request is in flight and never re-sends on success. (The double-grade guard on
-the *chat* side is about the same card being graded from two UIs, see architecture.md.)
+Idempotency: not guaranteed — grading twice applies SM-2 twice. The client disables the buttons while the
+request is in flight and never re-sends on success; since the app is the only review UI there is no second
+grader to race against.
 
 ## Versioning
 

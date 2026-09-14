@@ -11,9 +11,8 @@ There is no per-user language-pair selection; a different pair means a separate 
 `.env`, database). Users save translations as cards and get spaced-repetition reviews with an SM-2-style
 algorithm. Async, built on `python-telegram-bot` v22, with PostgreSQL/SQLAlchemy persistence.
 
-This project was scaffolded in Cursor. `CURSOR_BOT_INSTRUCTIONS.md` in the repo root is the original
-Cursor-rules doc this codebase follows (and is also a reusable template for spinning up sibling bots) — read it
-for the full architecture/convention rationale; the essentials are captured below.
+This project was originally scaffolded in Cursor; the architecture/convention rationale that came from those
+rules is captured below (the original rules file is no longer in the repo).
 
 **Telegram Mini App**: a Svelte frontend (`webapp/`) plus a FastAPI backend (`vocab_bot/webapi/`, run as a
 separate process via `vocab-bot-api`) give the bot a full-screen review UI. Design, API contract, phased plan
@@ -75,7 +74,8 @@ webapi    ─┴─►  services  →  repositories  →  persistence (store mix
   schema. Never imports `handlers/` (that tree imports `telegram`). `create_app(settings, db=...)` builds its
   own `Database` in the lifespan; tests inject `AsyncMock` services on `app.state` and drive it with
   `httpx.ASGITransport`.
-- **`services/`** — business logic/orchestration (`UserService`, `TranslationService`, `ReviewService`). Take
+- **`services/`** — business logic/orchestration (`UserService`, `TranslationService`, `ReviewService`,
+  `DueNotificationService`). Take
   repositories + `Settings` via constructor injection. Never import `telegram`.
 - **`repositories/`** — thin async facades over `Database` store methods, one per aggregate (users, cards,
   pending). Domain-oriented method names, not SQL-oriented.
@@ -115,6 +115,23 @@ once per `DUE_NOTIFY_COOLDOWN_MINUTES`, persisted as `users.due_notified_at`).
   both entry points need live in `services/` (e.g. `user_has_access`, `build_due_card`).
 - **Mini App is mandatory**: `Settings.from_env()` raises without `WEBAPP_URL`; Menu Button, the reminder's
   "Open in app" button and the `/start` hint are unconditional. Only `WORDBANK_PATH` remains an optional feature.
+
+### Production and operations
+
+- **Where it runs**: one DigitalOcean Droplet (Ubuntu 24.04, 1 GB) hosting **two** deployments side by side —
+  RU↔PL (with the wordbank) and RU↔EN — each with its own checkout, `.env`, database, `bot`+`api` service pair,
+  API port and HTTPS hostname. Layout and naming: `docs/miniapp/deployment.md`, sections 0–10 plus "Second
+  language pair on the same host". The Raspberry Pi mentioned in older docs is retired (both bots stopped there).
+- **Secrets and host specifics are deliberately not in this public repo** (IP, hostnames, tokens, DB password,
+  wordbank JSON). The operator's machine has an SSH alias for the droplet and the deployment details in Claude's
+  session memory; ask the owner if you don't have them.
+- **Update flow** (per checkout, both must be updated): `git pull` → `uv sync --frozen --extra api` → restart
+  the checkout's two services. Additive DB migrations run on service start. The frontend is built locally
+  (`webapp/`: `npm ci && npm run build`) and rsynced to the site root — the VPS has no Node.
+- **Backups**: nightly `pg_dump` of every database via cron on the droplet (`/home/app/backups`, 30-day
+  retention) plus weekly Droplet snapshots. Restore path is in `deployment.md` §10.
+- **Local dev has no Postgres**: unit tests are mock/fake based (see table below); anything DB-related is
+  verified on the droplet after deploy (`journalctl -u <service>`, `/api/health`).
 
 ### Testing
 
