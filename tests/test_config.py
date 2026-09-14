@@ -102,3 +102,16 @@ def test_settings_missing_deepl_key(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_parse_user_ids_helper() -> None:
     assert _parse_user_ids("1;2,abc, 3") == frozenset({1, 2, 3})
+
+
+def test_settings_due_notify_cooldown(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("BOT_TOKEN", "token")
+    monkeypatch.setenv("DEEPL_API_KEY", "deepl-key")
+    monkeypatch.delenv("DUE_NOTIFY_COOLDOWN_MINUTES", raising=False)
+    assert Settings.from_env().due_notify_cooldown_minutes == 240
+
+    monkeypatch.setenv("DUE_NOTIFY_COOLDOWN_MINUTES", "0")
+    assert Settings.from_env().due_notify_cooldown_minutes == 1
+
+    monkeypatch.setenv("DUE_NOTIFY_COOLDOWN_MINUTES", "90")
+    assert Settings.from_env().due_notify_cooldown_minutes == 90

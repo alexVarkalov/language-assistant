@@ -43,6 +43,7 @@ class Settings:
     webapp_api_host: str = "127.0.0.1"
     webapp_api_port: int = 8080
     webapp_initdata_max_age: int = 86400
+    due_notify_cooldown_minutes: int = 240
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -97,6 +98,7 @@ class Settings:
         webapp_api_host = os.environ.get("WEBAPP_API_HOST", "").strip() or "127.0.0.1"
         webapp_api_port = _int_env("WEBAPP_API_PORT", default=8080, minimum=1)
         webapp_initdata_max_age = _int_env("WEBAPP_INITDATA_MAX_AGE", default=86400, minimum=60)
+        due_notify_cooldown_minutes = _int_env("DUE_NOTIFY_COOLDOWN_MINUTES", default=240, minimum=1)
 
         return cls(
             bot_token=token,
@@ -114,6 +116,7 @@ class Settings:
             webapp_api_host=webapp_api_host,
             webapp_api_port=webapp_api_port,
             webapp_initdata_max_age=webapp_initdata_max_age,
+            due_notify_cooldown_minutes=due_notify_cooldown_minutes,
         )
 
 

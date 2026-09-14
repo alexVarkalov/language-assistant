@@ -33,6 +33,7 @@ class Database(UserStore, PendingStore, CardStore):
         Base.metadata.create_all(self._engine)
         with self._engine.begin() as conn:
             conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS preferred_locale VARCHAR"))
+            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS due_notified_at TIMESTAMP WITH TIME ZONE"))
 
 
 @asynccontextmanager

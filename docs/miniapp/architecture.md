@@ -219,10 +219,11 @@ docs/miniapp/                    these docs
 
 ## Known limitations (MVP) → later phases
 
-- **Chat notifications keep coming while reviewing in the app.** `due_poll` sends one notification per user
-  per poll (every `DUE_POLL_INTERVAL`s) for the next due card. This is existing behaviour; draining the queue
-  in the app makes it *less* noisy, not more. Phase 2: a consolidated "N cards due — [Open app] [Review here]"
-  notification and/or a per-user cool-down.
+- ~~**Chat notifications keep coming while reviewing in the app.**~~ Done (2026-09-14): `due_poll` now sends one
+  consolidated "N cards to review → [Open app]" message per user. `DueNotificationService` decides who: the
+  first due card after an empty queue is announced on the next poll, then at most once per
+  `DUE_NOTIFY_COOLDOWN_MINUTES` while the queue stays non-empty (`users.due_notified_at`, reset when the
+  user's queue is empty). Per-card chat notifications are gone; the job only runs when `WEBAPP_URL` is set.
 - **Stale chat messages.** A card graded in the app leaves its chat notification with live buttons; tapping
   them shows `review_already_graded`. Editing that message from the API would require persisting
   `notification_message_id` on the card (phase 2 candidate).

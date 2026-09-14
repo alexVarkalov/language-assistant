@@ -43,3 +43,4 @@ class BotUser:
     created_at: datetime
     updated_at: datetime
     last_seen_at: datetime
+    due_notified_at: datetime | None = None

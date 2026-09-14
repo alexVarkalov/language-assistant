@@ -149,6 +149,7 @@ SOURCE_LANG=PL
 TARGET_LANG=RU
 DATABASE_URL=postgresql+psycopg://langbot:change_me_strong_password@localhost:5432/language_assistant
 DUE_POLL_INTERVAL=45
+DUE_NOTIFY_COOLDOWN_MINUTES=240
 SHORT_REVIEW_INTERVAL_MINUTES=10
 ADMIN_USER_IDS=123456789
 WORDBANK_PATH=data/ru_pl_dictionary.json      # optional; scp the JSON out-of-band as before

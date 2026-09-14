@@ -39,4 +39,5 @@ def to_user(record: UserRecord) -> BotUser:
         created_at=record.created_at,
         updated_at=record.updated_at,
         last_seen_at=record.last_seen_at,
+        due_notified_at=record.due_notified_at,
     )

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -8,9 +7,8 @@ import pytest
 
 from tests.helpers import make_user
 from vocab_bot.config import Settings
-from vocab_bot.handlers import reviews as reviews_module
-from vocab_bot.handlers.reviews import due_poll, due_review_keyboard
-from vocab_bot.persistence.types import Card
+from vocab_bot.handlers.reviews import due_poll, due_summary_keyboard
+from vocab_bot.services import DueSummary
 
 
 def _settings(webapp_url: str | None = None) -> Settings:
@@ -30,125 +28,70 @@ def _settings(webapp_url: str | None = None) -> Settings:
     )
 
 
-def _card(card_id: int, user_id: int, source: str = "hello", target: str = "privet") -> Card:
-    return Card(
-        id=card_id,
-        user_id=user_id,
-        source_text=source,
-        target_text=target,
-        source_lang="EN",
-        target_lang="RU",
-        ease_factor=2.5,
-        interval_days=1.0,
-        repetition=1,
-        next_review_at=datetime.now(tz=UTC),
-        awaiting_grade=False,
-    )
-
-
 def _ctx(webapp_url: str | None = None) -> SimpleNamespace:
     return SimpleNamespace(
         application=SimpleNamespace(
-            bot_data={
-                "settings": _settings(webapp_url),
-                "review_service": AsyncMock(),
-                "user_service": AsyncMock(),
-            }
+            bot_data={"settings": _settings(webapp_url), "due_notification_service": AsyncMock()}
         ),
         bot=AsyncMock(),
     )
 
 
-def test_due_review_keyboard_without_webapp_has_only_reveal() -> None:
-    keyboard = due_review_keyboard("en", 7, "source", "EN", _settings())
-
-    assert len(keyboard.inline_keyboard) == 1
-    assert keyboard.inline_keyboard[0][0].callback_data == "reveal:7:source"
+def test_due_summary_keyboard_without_webapp_is_none() -> None:
+    assert due_summary_keyboard("en", _settings()) is None
 
 
-def test_due_review_keyboard_with_webapp_adds_open_in_app_row() -> None:
-    keyboard = due_review_keyboard("en", 7, "target", "RU", _settings("https://vocab.example.com"))
+def test_due_summary_keyboard_opens_app_at_root() -> None:
+    keyboard = due_summary_keyboard("ru", _settings("https://vocab.example.com"))
 
-    assert len(keyboard.inline_keyboard) == 2
-    button = keyboard.inline_keyboard[1][0]
+    assert keyboard is not None
+    button = keyboard.inline_keyboard[0][0]
     assert button.web_app is not None
-    assert button.web_app.url == "https://vocab.example.com/?card=7"
+    assert button.web_app.url == "https://vocab.example.com"
     assert button.callback_data is None
 
 
 @pytest.mark.asyncio
-async def test_due_poll_sends_open_in_app_button_when_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_due_poll_sends_one_summary_per_user_and_marks_notified() -> None:
     context = _ctx("https://vocab.example.com")
-    context.application.bot_data["review_service"].list_due_cards.return_value = [_card(5, 10)]
-    context.application.bot_data["user_service"].is_allowed.return_value = True
-    context.application.bot_data["user_service"].get_user.return_value = make_user(telegram_id=10)
-    context.bot.send_message.return_value = SimpleNamespace(message_id=1)
-    monkeypatch.setattr(reviews_module, "pick_direction", lambda: "source")
-
-    await due_poll(context)
-
-    markup = context.bot.send_message.await_args.kwargs["reply_markup"]
-    assert markup.inline_keyboard[1][0].web_app.url == "https://vocab.example.com/?card=5"
-
-
-@pytest.mark.asyncio
-async def test_due_poll_returns_when_list_due_fails() -> None:
-    context = _ctx()
-    context.application.bot_data["review_service"].list_due_cards.side_effect = RuntimeError("db")
-
-    await due_poll(context)
-
-    context.bot.send_message.assert_not_awaited()
-
-
-@pytest.mark.asyncio
-async def test_due_poll_sends_once_per_user_and_marks_awaiting(monkeypatch: pytest.MonkeyPatch) -> None:
-    context = _ctx()
-    review_service = context.application.bot_data["review_service"]
-    user_service = context.application.bot_data["user_service"]
-    review_service.list_due_cards.return_value = [_card(1, 10), _card(2, 10), _card(3, 20)]
-    user_service.is_allowed.side_effect = [True, True]
-    user_service.get_user.side_effect = [make_user(telegram_id=10), make_user(telegram_id=20)]
-    context.bot.send_message.side_effect = [
-        SimpleNamespace(message_id=101),
-        SimpleNamespace(message_id=202),
+    notifier = context.application.bot_data["due_notification_service"]
+    notifier.collect.return_value = [
+        DueSummary(user=make_user(telegram_id=10, language_code="en"), due_count=1),
+        DueSummary(user=make_user(telegram_id=20, preferred_locale="ru"), due_count=5),
     ]
-    monkeypatch.setattr(reviews_module, "pick_direction", lambda: "source")
 
     await due_poll(context)
 
     assert context.bot.send_message.await_count == 2
-    assert review_service.mark_awaiting.await_count == 2
-    assert context.application.bot_data["awaiting_review_messages"][(10, 1)] == 101
-    assert context.application.bot_data["awaiting_review_messages"][(20, 3)] == 202
-    assert context.application.bot_data["awaiting_review_directions"][(10, 1)] == "source"
+    first, second = context.bot.send_message.await_args_list
+    assert first.kwargs["chat_id"] == 10
+    assert "<b>1</b> card to review" in first.kwargs["text"]
+    assert first.kwargs["reply_markup"].inline_keyboard[0][0].web_app.url == "https://vocab.example.com"
+    assert second.kwargs["chat_id"] == 20
+    assert "<b>5</b> карточек" in second.kwargs["text"]
+    assert [call.args[0] for call in notifier.mark_notified.await_args_list] == [10, 20]
 
 
 @pytest.mark.asyncio
-async def test_due_poll_skips_disallowed_user() -> None:
+async def test_due_poll_returns_when_collect_fails() -> None:
     context = _ctx()
-    review_service = context.application.bot_data["review_service"]
-    user_service = context.application.bot_data["user_service"]
-    review_service.list_due_cards.return_value = [_card(1, 10)]
-    user_service.is_allowed.return_value = False
+    context.application.bot_data["due_notification_service"].collect.side_effect = RuntimeError("db")
 
     await due_poll(context)
 
     context.bot.send_message.assert_not_awaited()
-    review_service.mark_awaiting.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_due_poll_swallow_send_errors(monkeypatch: pytest.MonkeyPatch) -> None:
-    context = _ctx()
-    review_service = context.application.bot_data["review_service"]
-    user_service = context.application.bot_data["user_service"]
-    review_service.list_due_cards.return_value = [_card(1, 10)]
-    user_service.is_allowed.return_value = True
-    user_service.get_user.return_value = make_user(telegram_id=10)
-    context.bot.send_message.side_effect = RuntimeError("telegram down")
-    monkeypatch.setattr(reviews_module, "pick_direction", lambda: "target")
+async def test_due_poll_does_not_mark_notified_when_send_fails() -> None:
+    context = _ctx("https://vocab.example.com")
+    notifier = context.application.bot_data["due_notification_service"]
+    notifier.collect.return_value = [
+        DueSummary(user=make_user(telegram_id=10), due_count=2),
+        DueSummary(user=make_user(telegram_id=20), due_count=3),
+    ]
+    context.bot.send_message.side_effect = [RuntimeError("telegram down"), SimpleNamespace(message_id=2)]
 
     await due_poll(context)
 
-    review_service.mark_awaiting.assert_not_awaited()
+    assert [call.args[0] for call in notifier.mark_notified.await_args_list] == [20]

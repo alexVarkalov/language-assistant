@@ -198,3 +198,16 @@ def test_update_card_srs_sync_updates_fields() -> None:
     assert record.repetition == 2
     assert record.awaiting_grade is False
     assert session.committed == 1
+
+
+def test_count_due_cards_by_user_sync(monkeypatch: pytest.MonkeyPatch) -> None:
+    session = FakeSession()
+    session.execute = lambda _stmt: SimpleNamespace(all=lambda: [(7, 3), (8, 1)])  # type: ignore[method-assign]
+    db = CardsDb(session)
+    monkeypatch.setattr(
+        "vocab_bot.persistence.cards.select",
+        lambda *_a, **_k: SimpleNamespace(where=lambda *_a2, **_k2: SimpleNamespace(group_by=lambda *_a3: object())),
+    )
+    monkeypatch.setattr("vocab_bot.persistence.cards.utc_now", lambda: datetime(2026, 1, 1, tzinfo=UTC))
+
+    assert db._count_due_cards_by_user_sync() == {7: 3, 8: 1}

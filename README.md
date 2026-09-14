@@ -11,7 +11,8 @@ schedules reviews using an SM-2 style algorithm.
 - Auto-detect which of the deployment's two languages you typed (by script) and translate to the other
 - Translate text with DeepL (`DEEPL_API_KEY` required)
 - Show multiple translation options and save the chosen one
-- Background due-card polling and review prompts
+- Background due-card polling with one consolidated "N cards to review" reminder per user (edge-triggered,
+  repeated at most once per cool-down while the queue stays non-empty); reviews happen in the Mini App
 - Self-grading flow (`Again`, `Good`, `Easy`)
 - PostgreSQL persistence via SQLAlchemy ORM
 
@@ -65,12 +66,16 @@ Environment variables:
   rather than reconfiguring this one.
 - `DATABASE_URL` (optional): PostgreSQL SQLAlchemy URL. Default: `postgresql+psycopg://postgres:postgres@localhost:5432/language_assistant`.
 - `DUE_POLL_INTERVAL` (optional): polling interval in seconds (minimum 15). Default: `45`.
+- `DUE_NOTIFY_COOLDOWN_MINUTES` (optional): minimum gap between two "cards to review" reminders for the same
+  user while their due queue stays non-empty (minimum 1). The first due card after an empty queue is always
+  announced on the next poll. Default: `240`.
 - `SHORT_REVIEW_INTERVAL_MINUTES` (optional): short review delay in minutes used for first review and resets after `Again` (minimum 1). Default: `10`.
 - `ADMIN_USER_IDS` (optional): comma-separated Telegram user IDs allowed to manage user access.
 - `WORDBANK_PATH` (optional): path to a parsed topic-dictionary JSON file (see "Wordbank" below). Unset by
   default — the `/wordbank` command only exists on deployments where this is set.
 - `WEBAPP_URL` (optional): public `https://` URL of the Telegram Mini App (see "Mini App" below). When set,
-  the bot shows a Menu Button and an "Open in app" button on review notifications. Unset by default.
+  the bot shows a Menu Button and an "Open in app" button on review reminders. Unset by default — and
+  without it no reminders are sent, since reviewing happens in the app.
 - `WEBAPP_API_HOST` / `WEBAPP_API_PORT` (optional): bind address/port of the Mini App API process
   (`python -m vocab_bot.webapi`). Defaults: `127.0.0.1` / `8080`.
 - `WEBAPP_INITDATA_MAX_AGE` (optional): max accepted age of Telegram `initData` in seconds (minimum 60).

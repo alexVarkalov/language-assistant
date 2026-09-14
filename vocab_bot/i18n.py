@@ -75,6 +75,9 @@ _MESSAGES: Mapping[str, Mapping[str, str]] = {
             "<b>Review time</b> ({lang_pair})\nWhat is the <b>{answer_lang}</b> word for:\n<b>{prompt_text}</b>"
         ),
         "due_reveal": "Reveal {answer_lang} word",
+        "due_summary_one": "<b>Review time</b>\nYou have <b>{count}</b> card to review.",
+        "due_summary_few": "<b>Review time</b>\nYou have <b>{count}</b> cards to review.",
+        "due_summary_many": "<b>Review time</b>\nYou have <b>{count}</b> cards to review.",
         "due_open_app": "Open in app",
         "menu_button_app": "Reviews",
         "start_app_hint": "Tap the menu button next to the input field to review cards in the app.",
@@ -155,6 +158,9 @@ _MESSAGES: Mapping[str, Mapping[str, str]] = {
             "<b>{prompt_text}</b>"
         ),
         "due_reveal": "Показать слово на {answer_lang}",
+        "due_summary_one": "<b>Пора повторять</b>\nУ вас <b>{count}</b> карточка к повторению.",
+        "due_summary_few": "<b>Пора повторять</b>\nУ вас <b>{count}</b> карточки к повторению.",
+        "due_summary_many": "<b>Пора повторять</b>\nУ вас <b>{count}</b> карточек к повторению.",
         "due_open_app": "Открыть в приложении",
         "menu_button_app": "Повторения",
         "start_app_hint": "Кнопка меню рядом с полем ввода открывает приложение для повторений.",
@@ -189,3 +195,25 @@ def t(locale: str, key: str, **kwargs: object) -> str:
     normalized = normalize_locale(locale)
     template = _MESSAGES[normalized].get(key) or _MESSAGES[DEFAULT_LOCALE][key]
     return template.format(**kwargs)
+
+
+def plural_form(locale: str, count: int) -> str:
+    """CLDR-style category used as a key suffix: en has one/many, ru has one/few/many."""
+    n = abs(count)
+    if normalize_locale(locale) == "ru":
+        if n % 10 == 1 and n % 100 != 11:
+            return "one"
+        if n % 10 in (2, 3, 4) and n % 100 not in (12, 13, 14):
+            return "few"
+        return "many"
+    return "one" if n == 1 else "many"
+
+
+def t_count(locale: str, key: str, count: int, **kwargs: object) -> str:
+    """Translate `{key}_{plural form}` for `count`, falling back to `{key}_many` when a form is missing."""
+    normalized = normalize_locale(locale)
+    form = plural_form(normalized, count)
+    template = _MESSAGES[normalized].get(f"{key}_{form}") or _MESSAGES[normalized].get(f"{key}_many")
+    if template is None:
+        return t(DEFAULT_LOCALE, f"{key}_{plural_form(DEFAULT_LOCALE, count)}", count=count, **kwargs)
+    return template.format(count=count, **kwargs)

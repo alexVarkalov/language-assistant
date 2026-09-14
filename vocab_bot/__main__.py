@@ -12,7 +12,7 @@ from vocab_bot.db import Database
 from vocab_bot.handlers import due_poll, register_handlers
 from vocab_bot.i18n import DEFAULT_LOCALE, t
 from vocab_bot.repositories import CardRepository, PendingRepository, UserRepository
-from vocab_bot.services import ReviewService, TranslationService, UserService
+from vocab_bot.services import DueNotificationService, ReviewService, TranslationService, UserService
 from vocab_bot.services.wordbank import WordbankService
 from vocab_bot.wordbank import load_wordbank
 
@@ -53,12 +53,21 @@ async def _post_init(application: Application) -> None:
     if settings.wordbank_path is not None:
         sections = load_wordbank(settings.wordbank_path)
         application.bot_data["wordbank_service"] = WordbankService(sections, card_repo, settings)
-    application.job_queue.run_repeating(
-        due_poll,
-        interval=settings.due_poll_interval,
-        first=10,
-        name="due_poll",
+    application.bot_data["due_notification_service"] = DueNotificationService(
+        card_repo,
+        user_repo,
+        admin_user_ids=settings.admin_user_ids,
+        cooldown_minutes=settings.due_notify_cooldown_minutes,
     )
+    if settings.webapp_url is not None:
+        application.job_queue.run_repeating(
+            due_poll,
+            interval=settings.due_poll_interval,
+            first=10,
+            name="due_poll",
+        )
+    else:
+        logger.warning("WEBAPP_URL is not set: due-card reminders are disabled (they open the Mini App)")
     await _configure_menu_button(application, settings)
 
 

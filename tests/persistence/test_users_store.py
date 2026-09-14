@@ -167,3 +167,47 @@ def test_list_users_sync(monkeypatch: pytest.MonkeyPatch) -> None:
     users = db._list_users_sync(limit=2)
 
     assert users == [r1, r2]
+
+
+def test_set_due_notified_at_sync_truncates_to_utc_seconds() -> None:
+    record = _fake_user_record(1)
+    session = FakeSession(scalar_results=[record])
+    db = UsersDb(session)
+
+    db._set_due_notified_at_sync(1, datetime(2026, 9, 14, 14, 0, 0, 123456, tzinfo=UTC))
+
+    assert record.due_notified_at == datetime(2026, 9, 14, 14, 0, 0, tzinfo=UTC)
+    assert session.committed == 1
+
+
+def test_set_due_notified_at_sync_missing_user_is_noop() -> None:
+    session = FakeSession(scalar_results=[None])
+    db = UsersDb(session)
+
+    db._set_due_notified_at_sync(1, datetime(2026, 9, 14, tzinfo=UTC))
+
+    assert session.committed == 1
+
+
+def test_clear_due_notified_except_sync_executes_update(monkeypatch: pytest.MonkeyPatch) -> None:
+    session = FakeSession()
+    db = UsersDb(session)
+    calls: list[str] = []
+
+    class FakeUpdate:
+        def where(self, *_a: object) -> FakeUpdate:
+            calls.append("where")
+            return self
+
+        def values(self, **_k: object) -> FakeUpdate:
+            calls.append("values")
+            return self
+
+    monkeypatch.setattr("vocab_bot.persistence.users.update", lambda _model: FakeUpdate())
+
+    db._clear_due_notified_except_sync([1, 2])
+    assert calls == ["where", "where", "values"]
+    calls.clear()
+    db._clear_due_notified_except_sync([])
+    assert calls == ["where", "values"]
+    assert session.committed == 2

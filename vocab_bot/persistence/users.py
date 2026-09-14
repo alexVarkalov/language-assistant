@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Collection
+from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from vocab_bot.persistence.models import UserRecord
@@ -152,3 +154,25 @@ class UserStore:
         with self._session_factory() as session:
             rows = session.scalars(select(UserRecord).order_by(UserRecord.last_seen_at.desc()).limit(limit)).all()
             return [to_user(record) for record in rows]
+
+    async def set_due_notified_at(self, telegram_id: int, notified_at: datetime) -> None:
+        await asyncio.to_thread(self._set_due_notified_at_sync, telegram_id, notified_at)
+
+    def _set_due_notified_at_sync(self, telegram_id: int, notified_at: datetime) -> None:
+        with self._session_factory() as session:
+            record = session.scalar(select(UserRecord).where(UserRecord.telegram_id == telegram_id))
+            if record is not None:
+                record.due_notified_at = notified_at.astimezone(UTC).replace(microsecond=0)
+            session.commit()
+
+    async def clear_due_notified_except(self, user_ids: Collection[int]) -> None:
+        """Forget the last reminder for every user *not* listed, so their next due card is announced promptly."""
+        await asyncio.to_thread(self._clear_due_notified_except_sync, user_ids)
+
+    def _clear_due_notified_except_sync(self, user_ids: Collection[int]) -> None:
+        with self._session_factory() as session:
+            stmt = update(UserRecord).where(UserRecord.due_notified_at.is_not(None))
+            if user_ids:
+                stmt = stmt.where(UserRecord.telegram_id.not_in(list(user_ids)))
+            session.execute(stmt.values(due_notified_at=None))
+            session.commit()

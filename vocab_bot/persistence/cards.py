@@ -256,3 +256,15 @@ class CardStore:
                 record.next_review_at = next_review_at.astimezone(UTC).replace(microsecond=0)
                 record.awaiting_grade = False
             session.commit()
+
+    async def count_due_cards_by_user(self) -> dict[int, int]:
+        return await asyncio.to_thread(self._count_due_cards_by_user_sync)
+
+    def _count_due_cards_by_user_sync(self) -> dict[int, int]:
+        with self._session_factory() as session:
+            rows = session.execute(
+                select(CardRecord.user_id, func.count())
+                .where(CardRecord.next_review_at <= utc_now())
+                .group_by(CardRecord.user_id)
+            ).all()
+            return {int(user_id): int(count) for user_id, count in rows}

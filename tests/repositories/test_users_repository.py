@@ -43,3 +43,18 @@ async def test_user_repository_mutation_methods_call_db() -> None:
     db.set_user_timezone.assert_awaited_once_with(1, "UTC")
     db.set_user_locale.assert_awaited_once_with(1, "ru")
     db.list_users.assert_awaited_once_with(3)
+
+
+@pytest.mark.asyncio
+async def test_user_repository_due_notified_forwards() -> None:
+    from datetime import UTC, datetime
+
+    db = AsyncMock()
+    repo = UserRepository(db)
+    at = datetime(2026, 9, 14, tzinfo=UTC)
+
+    await repo.set_due_notified_at(5, at)
+    await repo.clear_due_notified_except([5, 6])
+
+    db.set_due_notified_at.assert_awaited_once_with(5, at)
+    db.clear_due_notified_except.assert_awaited_once_with([5, 6])
