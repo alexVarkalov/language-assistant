@@ -416,4 +416,6 @@ git commit
 - `vocab_bot/webapi/`: FastAPI backend of the Mini App (separate process, `initData` auth)
 - `webapp/`: Svelte frontend of the Mini App (built locally, deployed as static files)
 - `docs/miniapp/`: Mini App design, API contract, implementation plan and the VPS deployment guide
+- `docs/new-bot-playbook.md`: reusable recipe (stack, layer rules, conventions, testing, deployment, bootstrap checklist)
+  for starting another Telegram bot from this project
 - `scripts/parse_ru_pl_dictionary.py`: dev-only tool that regenerates the wordbank JSON from the source PDF
