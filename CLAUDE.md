@@ -20,6 +20,9 @@ and VPS deployment live in `docs/miniapp/` — read `docs/miniapp/README.md` fir
 Mini App related. `WEBAPP_URL` is required: reviews and due reminders happen only in the app (the chat
 review flow was removed on 2026-09-14); chat still handles translation, saving and the wordbank.
 
+**Starting another bot?** `docs/new-bot-playbook.md` distills this project's stack, layer rules, conventions,
+testing approach, deployment recipe and a bootstrap checklist into a copyable recipe for a new Telegram bot repo.
+
 ## Commands
 
 ```bash
