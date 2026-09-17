@@ -204,8 +204,9 @@ webapi    ─┴─►  services  →  repositories  →  persistence (store mix
 - **Job queue**: `application.job_queue.scheduler.configure(timezone="UTC")`, `run_repeating(fn, interval,
   first=10, name="...")`. Inside a job, catch `Forbidden`/`BadRequest` per user (bot blocked, chat deleted)
   and treat as delivered so the log isn't flooded every tick; catch broad `Exception` per user and continue.
-- **Reminders**: edge-triggered plus cool-down, state in the DB (`due_notified_at`), see
-  `services/notifications.py`. Never send one message per item; consolidate ("N things to do → Open").
+- **Reminders**: per-user frequency (1–3 a day) mapped to fixed local-time slots, state in the DB
+  (`reminders_per_day`, `due_notified_at`), see `services/notifications.py`. Never send one message per item;
+  consolidate ("N things to do → Open").
 - Menu Button → Mini App is set on startup with `set_chat_menu_button`; Telegram clients cache it.
 
 ### Time

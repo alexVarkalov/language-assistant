@@ -7,7 +7,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from vocab_bot.persistence import BotUser, Card, PendingTranslation
+from vocab_bot.persistence import DEFAULT_REMINDERS_PER_DAY, BotUser, Card, PendingTranslation
 from vocab_bot.persistence.cards import CardStore
 from vocab_bot.persistence.models import Base
 from vocab_bot.persistence.pending import PendingStore
@@ -34,6 +34,12 @@ class Database(UserStore, PendingStore, CardStore):
         with self._engine.begin() as conn:
             conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS preferred_locale VARCHAR"))
             conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS due_notified_at TIMESTAMP WITH TIME ZONE"))
+            conn.execute(
+                text(
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS reminders_per_day INTEGER NOT NULL "
+                    f"DEFAULT {DEFAULT_REMINDERS_PER_DAY}"
+                )
+            )
 
 
 @asynccontextmanager

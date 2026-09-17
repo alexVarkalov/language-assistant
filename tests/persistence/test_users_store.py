@@ -28,6 +28,8 @@ def _fake_user_record(telegram_id: int = 1) -> SimpleNamespace:
         created_at=now,
         updated_at=now,
         last_seen_at=now,
+        due_notified_at=None,
+        reminders_per_day=1,
     )
 
 
@@ -121,10 +123,11 @@ def test_set_user_allowed_updates_when_present(monkeypatch: pytest.MonkeyPatch) 
     [
         ("_set_user_timezone_sync", "timezone", "Europe/Warsaw"),
         ("_set_user_locale_sync", "preferred_locale", "ru"),
+        ("_set_user_reminders_per_day_sync", "reminders_per_day", 3),
     ],
 )
 def test_setters_create_record_when_missing(
-    monkeypatch: pytest.MonkeyPatch, method: str, field: str, value: str
+    monkeypatch: pytest.MonkeyPatch, method: str, field: str, value: object
 ) -> None:
     session = FakeSession(scalar_results=[None])
     db = UsersDb(session)
@@ -180,6 +183,17 @@ def test_set_due_notified_at_sync_truncates_to_utc_seconds() -> None:
     assert session.committed == 1
 
 
+def test_set_user_reminders_per_day_sync_updates_existing_record() -> None:
+    record = _fake_user_record(1)
+    session = FakeSession(scalar_results=[record])
+    db = UsersDb(session)
+
+    db._set_user_reminders_per_day_sync(1, 2)
+
+    assert record.reminders_per_day == 2
+    assert session.committed == 1
+
+
 def test_set_due_notified_at_sync_missing_user_is_noop() -> None:
     session = FakeSession(scalar_results=[None])
     db = UsersDb(session)
@@ -187,27 +201,3 @@ def test_set_due_notified_at_sync_missing_user_is_noop() -> None:
     db._set_due_notified_at_sync(1, datetime(2026, 9, 14, tzinfo=UTC))
 
     assert session.committed == 1
-
-
-def test_clear_due_notified_except_sync_executes_update(monkeypatch: pytest.MonkeyPatch) -> None:
-    session = FakeSession()
-    db = UsersDb(session)
-    calls: list[str] = []
-
-    class FakeUpdate:
-        def where(self, *_a: object) -> FakeUpdate:
-            calls.append("where")
-            return self
-
-        def values(self, **_k: object) -> FakeUpdate:
-            calls.append("values")
-            return self
-
-    monkeypatch.setattr("vocab_bot.persistence.users.update", lambda _model: FakeUpdate())
-
-    db._clear_due_notified_except_sync([1, 2])
-    assert calls == ["where", "where", "values"]
-    calls.clear()
-    db._clear_due_notified_except_sync([])
-    assert calls == ["where", "values"]
-    assert session.committed == 2

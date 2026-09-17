@@ -25,8 +25,9 @@ banner listing what has since been superseded. `api.md` and `deployment.md` are 
 
 ### Since the MVP (2026-09-14)
 
-- Consolidated due reminder with per-user cool-down (`DueNotificationService`, `DUE_NOTIFY_COOLDOWN_MINUTES`),
-  replacing the per-card chat notification.
+- Consolidated due reminder (`DueNotificationService`), replacing the per-card chat notification. Since
+  2026-09-17 each user picks 1, 2 or 3 reminders a day (`/reminders`, `/menu`), sent at fixed local-time slots
+  instead of the earlier global cool-down (`DUE_NOTIFY_COOLDOWN_MINUTES` was removed).
 - Chat review flow removed (`reveal:`/`grade:` callbacks, typed guesses, `awaiting_grade` handling);
   `WEBAPP_URL` is mandatory.
 - Frontend: each card mounts fresh (`{#key card.id}`) so the previous card's un-flip never shows the next answer.

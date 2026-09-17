@@ -55,7 +55,6 @@ async def _post_init(application: Application) -> None:
         card_repo,
         user_repo,
         admin_user_ids=settings.admin_user_ids,
-        cooldown_minutes=settings.due_notify_cooldown_minutes,
     )
     application.job_queue.run_repeating(
         due_poll,

@@ -236,10 +236,12 @@ docs/miniapp/                    these docs
 ## Known limitations (MVP) → later phases
 
 - ~~**Chat notifications keep coming while reviewing in the app.**~~ Done (2026-09-14): `due_poll` now sends one
-  consolidated "N cards to review → [Open app]" message per user. `DueNotificationService` decides who: the
-  first due card after an empty queue is announced on the next poll, then at most once per
-  `DUE_NOTIFY_COOLDOWN_MINUTES` while the queue stays non-empty (`users.due_notified_at`, reset when the
-  user's queue is empty). Per-card chat notifications are gone; the job only runs when `WEBAPP_URL` is set.
+  consolidated "N cards to review → [Open app]" message per user. `DueNotificationService` decides who: since
+  2026-09-17 each user picks 1, 2 or 3 reminders a day (`users.reminders_per_day`), mapped to fixed local-time
+  slots (09:00 / 09:00+19:00 / 09:00+14:00+19:00 in the user's timezone); a reminder goes out on the first
+  poll after a slot when the user has due cards and `users.due_notified_at` predates that slot. (The initial
+  version used an edge-triggered global cool-down, `DUE_NOTIFY_COOLDOWN_MINUTES`, now removed.) Per-card chat
+  notifications are gone; the job only runs when `WEBAPP_URL` is set.
 - ~~**Stale chat messages.**~~ Gone with the chat review flow (2026-09-14): `reveal:`/`grade:` callbacks, the
   typed-guess path and `awaiting_grade` handling were removed; the column stays in the DB, always `False`.
 - **No offline support.** Grades are sent immediately; a failed `POST` is retried once, then surfaced.

@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 from datetime import datetime
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from zoneinfo import ZoneInfo
 
 from telegram import Update
 from telegram.ext import ContextTypes
 
 from vocab_bot.config import Settings
 from vocab_bot.i18n import DEFAULT_LOCALE, resolve_user_locale, t
-from vocab_bot.persistence import BotUser
-from vocab_bot.services import UserService
+from vocab_bot.persistence import REMINDER_OPTIONS, BotUser
+from vocab_bot.services import UserService, reminder_hours, user_zone
 from vocab_bot.services import user_has_access as _user_has_access
 
 
@@ -22,12 +22,7 @@ def format_pair(lang_a: str, lang_b: str) -> str:
 
 
 def user_timezone(user: BotUser) -> ZoneInfo:
-    if user.timezone is None:
-        return ZoneInfo("UTC")
-    try:
-        return ZoneInfo(user.timezone)
-    except ZoneInfoNotFoundError:
-        return ZoneInfo("UTC")
+    return user_zone(user)
 
 
 def format_user_datetime(when: datetime, user: BotUser) -> str:
@@ -37,6 +32,20 @@ def format_user_datetime(when: datetime, user: BotUser) -> str:
 
 def format_user_timezone(user: BotUser) -> str:
     return user.timezone or "UTC"
+
+
+def parse_reminders_option(raw: str | None) -> int | None:
+    """Parse a user-typed reminders-per-day value; anything that is not one of the options yields None."""
+    value = (raw or "").strip()
+    if not value.isdigit():
+        return None
+    option = int(value)
+    return option if option in REMINDER_OPTIONS else None
+
+
+def format_reminder_times(reminders_per_day: int) -> str:
+    """Reminder slots as local wall-clock times, e.g. "09:00, 19:00"."""
+    return ", ".join(f"{hour:02d}:00" for hour in reminder_hours(reminders_per_day))
 
 
 async def record_user_seen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> BotUser | None:

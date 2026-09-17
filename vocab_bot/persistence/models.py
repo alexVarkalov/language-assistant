@@ -5,6 +5,8 @@ from datetime import datetime
 from sqlalchemy import Boolean, DateTime, Float, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
+from vocab_bot.persistence.types import DEFAULT_REMINDERS_PER_DAY
+
 
 class Base(DeclarativeBase):
     pass
@@ -24,8 +26,10 @@ class UserRecord(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    # When the last consolidated "N cards due" reminder was sent; NULL once the user's due queue is empty.
+    # When the last consolidated "N cards due" reminder was sent; NULL until the first one.
     due_notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # How many reminder slots a day the user opted into (1, 2 or 3; see services/notifications.py).
+    reminders_per_day: Mapped[int] = mapped_column(Integer, nullable=False, default=DEFAULT_REMINDERS_PER_DAY)
 
 
 class PendingRecord(Base):

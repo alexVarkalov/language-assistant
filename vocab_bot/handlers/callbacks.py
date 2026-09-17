@@ -9,13 +9,18 @@ from telegram.ext import ContextTypes
 from vocab_bot.config import Settings
 from vocab_bot.handlers.common import (
     format_langs,
+    format_reminder_times,
     format_user_datetime,
+    format_user_timezone,
+    parse_reminders_option,
     record_user_seen,
     user_has_access,
     user_locale,
 )
 from vocab_bot.handlers.menu import (
+    format_reminder_frequency,
     locale_menu_keyboard,
+    reminders_menu_keyboard,
     settings_menu_keyboard,
     settings_menu_text,
 )
@@ -120,6 +125,37 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                 status_line=t(updated_locale, "locale_updated", locale_label=updated_locale),
             ),
             reply_markup=settings_menu_keyboard(updated_locale),
+            parse_mode="HTML",
+        )
+        return
+
+    if data == "menu:reminders":
+        await query.edit_message_text(
+            t(locale, "menu_choose_reminders", timezone=format_user_timezone(user)),
+            reply_markup=reminders_menu_keyboard(locale, user.reminders_per_day),
+        )
+        return
+
+    if data.startswith("menu:set_reminders:"):
+        requested = parse_reminders_option(data.removeprefix("menu:set_reminders:"))
+        if requested is None:
+            await query.answer(t(locale, "reminders_invalid"), show_alert=True)
+            return
+        updated_user = await user_service.set_reminders_per_day(update.effective_user.id, requested)
+        await query.edit_message_text(
+            settings_menu_text(
+                locale,
+                updated_user,
+                settings,
+                status_line=t(
+                    locale,
+                    "reminders_updated",
+                    frequency=format_reminder_frequency(locale, updated_user.reminders_per_day),
+                    times=format_reminder_times(updated_user.reminders_per_day),
+                    timezone=format_user_timezone(updated_user),
+                ),
+            ),
+            reply_markup=settings_menu_keyboard(locale),
             parse_mode="HTML",
         )
         return

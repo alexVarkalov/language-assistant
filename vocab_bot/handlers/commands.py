@@ -8,17 +8,20 @@ from telegram.ext import ContextTypes
 from vocab_bot.config import Settings
 from vocab_bot.handlers.common import (
     format_pair,
+    format_reminder_times,
     format_user_datetime,
     format_user_display,
     format_user_timezone,
+    parse_reminders_option,
     parse_target_user_id,
     record_user_seen,
     require_admin,
     user_has_access,
     user_locale,
 )
-from vocab_bot.handlers.menu import settings_menu_keyboard, settings_menu_text
+from vocab_bot.handlers.menu import format_reminder_frequency, settings_menu_keyboard, settings_menu_text
 from vocab_bot.i18n import SUPPORTED_LOCALES, t
+from vocab_bot.persistence import BotUser
 from vocab_bot.services import UserService
 
 
@@ -57,6 +60,14 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             t(locale, "start_timezone", timezone=html.escape(format_user_timezone(user))),
             t(locale, "start_locale", locale_label=html.escape(user_locale(user))),
             t(locale, "start_set_locale"),
+            t(
+                locale,
+                "start_reminders",
+                frequency=format_reminder_frequency(locale, user.reminders_per_day),
+                times=format_reminder_times(user.reminders_per_day),
+                timezone=html.escape(format_user_timezone(user)),
+            ),
+            t(locale, "start_set_reminders"),
             t(locale, "start_translator", translator=html.escape(settings.translator)),
         ]
     )
@@ -144,6 +155,43 @@ async def cmd_locale(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     updated_user = await user_service.set_locale(update.effective_user.id, requested)
     updated_locale = user_locale(updated_user)
     await update.effective_message.reply_text(t(updated_locale, "locale_updated", locale_label=updated_locale))
+
+
+def _reminders_line(locale: str, key: str, user: BotUser) -> str:
+    return t(
+        locale,
+        key,
+        frequency=format_reminder_frequency(locale, user.reminders_per_day),
+        times=format_reminder_times(user.reminders_per_day),
+        timezone=format_user_timezone(user),
+    )
+
+
+async def cmd_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.effective_user is None or update.effective_message is None:
+        return
+
+    settings: Settings = context.application.bot_data["settings"]
+    user = await record_user_seen(update, context)
+    if user is None:
+        return
+    locale = user_locale(user)
+    if not user_has_access(user, settings):
+        await update.effective_message.reply_text(t(locale, "access_disabled"))
+        return
+
+    if not context.args:
+        await update.effective_message.reply_text(_reminders_line(locale, "reminders_current", user))
+        return
+
+    requested = parse_reminders_option(context.args[0])
+    if requested is None:
+        await update.effective_message.reply_text(t(locale, "reminders_invalid"))
+        return
+
+    user_service: UserService = context.application.bot_data["user_service"]
+    updated_user = await user_service.set_reminders_per_day(update.effective_user.id, requested)
+    await update.effective_message.reply_text(_reminders_line(locale, "reminders_updated", updated_user))
 
 
 async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

@@ -37,11 +37,13 @@ async def test_user_repository_mutation_methods_call_db() -> None:
     await repo.set_allowed(1, True)
     await repo.set_timezone(1, "UTC")
     await repo.set_locale(1, "ru")
+    await repo.set_reminders_per_day(1, 2)
     await repo.list_recent(limit=3)
 
     db.set_user_allowed.assert_awaited_once_with(1, True)
     db.set_user_timezone.assert_awaited_once_with(1, "UTC")
     db.set_user_locale.assert_awaited_once_with(1, "ru")
+    db.set_user_reminders_per_day.assert_awaited_once_with(1, 2)
     db.list_users.assert_awaited_once_with(3)
 
 
@@ -54,7 +56,5 @@ async def test_user_repository_due_notified_forwards() -> None:
     at = datetime(2026, 9, 14, tzinfo=UTC)
 
     await repo.set_due_notified_at(5, at)
-    await repo.clear_due_notified_except([5, 6])
 
     db.set_due_notified_at.assert_awaited_once_with(5, at)
-    db.clear_due_notified_except.assert_awaited_once_with([5, 6])

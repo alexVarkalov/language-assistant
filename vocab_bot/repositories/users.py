@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Collection
 from datetime import datetime
 
 from vocab_bot.db import Database
@@ -40,11 +39,11 @@ class UserRepository:
     async def set_locale(self, telegram_id: int, locale: str) -> BotUser:
         return await self._db.set_user_locale(telegram_id, locale)
 
+    async def set_reminders_per_day(self, telegram_id: int, reminders_per_day: int) -> BotUser:
+        return await self._db.set_user_reminders_per_day(telegram_id, reminders_per_day)
+
     async def list_recent(self, limit: int = 50) -> list[BotUser]:
         return await self._db.list_users(limit)
 
     async def set_due_notified_at(self, telegram_id: int, notified_at: datetime) -> None:
         await self._db.set_due_notified_at(telegram_id, notified_at)
-
-    async def clear_due_notified_except(self, user_ids: Collection[int]) -> None:
-        await self._db.clear_due_notified_except(user_ids)

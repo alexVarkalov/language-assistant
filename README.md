@@ -11,8 +11,8 @@ schedules reviews using an SM-2 style algorithm.
 - Auto-detect which of the deployment's two languages you typed (by script) and translate to the other
 - Translate text with DeepL (`DEEPL_API_KEY` required)
 - Show multiple translation options and save the chosen one
-- Background due-card polling with one consolidated "N cards to review" reminder per user (edge-triggered,
-  repeated at most once per cool-down while the queue stays non-empty); reviews happen in the Mini App
+- Background due-card polling with one consolidated "N cards to review" reminder per user, sent at fixed
+  local times the user picks with `/reminders` (1, 2 or 3 times a day); reviews happen in the Mini App
 - Self-grading flow (`Again`, `Good`, `Easy`) in the Telegram Mini App
 - PostgreSQL persistence via SQLAlchemy ORM
 
@@ -66,9 +66,6 @@ Environment variables:
   rather than reconfiguring this one.
 - `DATABASE_URL` (optional): PostgreSQL SQLAlchemy URL. Default: `postgresql+psycopg://postgres:postgres@localhost:5432/language_assistant`.
 - `DUE_POLL_INTERVAL` (optional): polling interval in seconds (minimum 15). Default: `45`.
-- `DUE_NOTIFY_COOLDOWN_MINUTES` (optional): minimum gap between two "cards to review" reminders for the same
-  user while their due queue stays non-empty (minimum 1). The first due card after an empty queue is always
-  announced on the next poll. Default: `240`.
 - `SHORT_REVIEW_INTERVAL_MINUTES` (optional): short review delay in minutes used for first review and resets after `Again` (minimum 1). Default: `10`.
 - `ADMIN_USER_IDS` (optional): comma-separated Telegram user IDs allowed to manage user access.
 - `WORDBANK_PATH` (optional): path to a parsed topic-dictionary JSON file (see "Wordbank" below). Unset by
@@ -84,14 +81,18 @@ Environment variables:
 ## Bot usage
 
 - Send `/start` to see instructions.
-- Send `/menu` (or `/settings`) to open an interactive settings menu (interface language).
+- Send `/menu` (or `/settings`) to open an interactive settings menu (interface language, reminder frequency).
 - Send `/locale ru` (or `/localization ru`) to switch bot interface language to Russian.
-- Send `/timezone Europe/Warsaw` to set your local timezone for review times.
+- Send `/timezone Europe/Warsaw` to set your local timezone for review times and reminders.
+- Send `/reminders 1`, `/reminders 2` or `/reminders 3` to choose how many review reminders a day you get
+  (default 1). They go out at 09:00 / 09:00 and 19:00 / 09:00, 14:00 and 19:00 in your timezone, and only
+  when you actually have cards to review.
 - Send a word/phrase in either of the deployment's two languages — the bot detects which one and translates
   to the other.
 - Click `Save & learn` to create/update a card.
-- When cards are due, the bot sends one "N cards to review" reminder with an **Open in app** button (also
-  reachable any time via the Menu Button next to the input field). Reviews happen only in the Mini App.
+- When cards are due, the bot sends one "N cards to review" reminder at your next reminder time, with an
+  **Open in app** button (also reachable any time via the Menu Button next to the input field). Reviews
+  happen only in the Mini App.
 - Flip the card, then grade yourself:
   - `Again` -> reset progress for that card
   - `Good` -> standard interval growth
@@ -142,7 +143,8 @@ The bot stores each Telegram user it sees in the PostgreSQL database. New users 
 - `/allow_user <telegram_user_id>`: enable access again.
 
 Users can set their timezone with `/timezone <iana_timezone>`, for example `/timezone Europe/Warsaw`.
-The bot stores this on the user record and uses it when showing review dates and times.
+The bot stores this on the user record and uses it when showing review dates and times and when scheduling
+the daily review reminders (`/reminders`, also in `/menu`).
 
 Set `ADMIN_USER_IDS` to your Telegram user ID before using these commands.
 

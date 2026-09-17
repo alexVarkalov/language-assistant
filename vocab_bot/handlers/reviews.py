@@ -22,7 +22,7 @@ def due_summary_keyboard(locale: str, settings: Settings) -> InlineKeyboardMarku
 
 
 async def due_poll(context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send one consolidated "N cards due" reminder per user, subject to the service's cool-down."""
+    """Send one consolidated "N cards due" reminder per user, at the reminder slots the service picks."""
     settings: Settings = context.application.bot_data["settings"]
     notifier: DueNotificationService = context.application.bot_data["due_notification_service"]
     try:
@@ -43,8 +43,8 @@ async def due_poll(context: ContextTypes.DEFAULT_TYPE) -> None:
             )
         except (Forbidden, BadRequest) as exc:
             # Blocked bot / deleted chat / unknown chat: retrying every poll only floods the log, so treat
-            # it as delivered and let the cool-down decide when to try again.
-            logger.warning("due poll: cannot reach user_id=%s (%s); retrying after cool-down", user_id, exc)
+            # it as delivered and try again at the user's next reminder slot.
+            logger.warning("due poll: cannot reach user_id=%s (%s); retrying at the next slot", user_id, exc)
         except Exception:
             logger.exception("due poll: failed to notify user_id=%s", user_id)
             continue

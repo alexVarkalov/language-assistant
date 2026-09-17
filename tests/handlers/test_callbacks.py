@@ -106,7 +106,7 @@ async def test_on_callback_dismiss(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("data", ["menu:open", "menu:locale"])
+@pytest.mark.parametrize("data", ["menu:open", "menu:locale", "menu:reminders"])
 async def test_on_callback_menu_branches(monkeypatch: pytest.MonkeyPatch, data: str) -> None:
     update = _update(data)
     context = _ctx()
@@ -139,3 +139,33 @@ async def test_on_callback_set_locale_valid(monkeypatch: pytest.MonkeyPatch) -> 
 
     context.application.bot_data["user_service"].set_locale.assert_awaited_once_with(123, "ru")
     update.callback_query.edit_message_text.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_on_callback_set_reminders_valid(monkeypatch: pytest.MonkeyPatch) -> None:
+    update = _update("menu:set_reminders:3")
+    context = _ctx()
+    monkeypatch.setattr(callbacks_module, "record_user_seen", AsyncMock(return_value=make_user()))
+    context.application.bot_data["user_service"].set_reminders_per_day.return_value = make_user(reminders_per_day=3)
+
+    await on_callback(update, context)
+
+    context.application.bot_data["user_service"].set_reminders_per_day.assert_awaited_once_with(123, 3)
+    update.callback_query.edit_message_text.assert_awaited_once()
+    text = update.callback_query.edit_message_text.await_args.args[0]
+    assert "3 times a day" in text
+    assert "09:00, 14:00, 19:00" in text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("data", ["menu:set_reminders:4", "menu:set_reminders:x", "menu:set_reminders:"])
+async def test_on_callback_set_reminders_invalid(monkeypatch: pytest.MonkeyPatch, data: str) -> None:
+    update = _update(data)
+    context = _ctx()
+    monkeypatch.setattr(callbacks_module, "record_user_seen", AsyncMock(return_value=make_user()))
+
+    await on_callback(update, context)
+
+    context.application.bot_data["user_service"].set_reminders_per_day.assert_not_awaited()
+    assert update.callback_query.answer.await_count == 2
+    update.callback_query.edit_message_text.assert_not_awaited()

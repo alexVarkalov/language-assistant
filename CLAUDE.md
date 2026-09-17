@@ -93,8 +93,10 @@ Dependencies are wired in `__main__.py::_post_init` and stashed on `application.
 `wordbank_service` when `WORDBANK_PATH` is set) — no global singletons. The due-card reminder job (`due_poll`,
 in `handlers/reviews.py`) is registered there via `job_queue.run_repeating`: it
 sends one consolidated "N cards to review → Open app" message per user, and `DueNotificationService`
-(`services/notifications.py`) owns the who/when (edge-triggered on an empty→non-empty queue, then at most
-once per `DUE_NOTIFY_COOLDOWN_MINUTES`, persisted as `users.due_notified_at`).
+(`services/notifications.py`) owns the who/when: each user picks 1, 2 or 3 reminders a day
+(`users.reminders_per_day`, via `/reminders` or the `/menu` picker), which map to fixed local-time slots
+(09:00 / 09:00+19:00 / 09:00+14:00+19:00 in the user's timezone, UTC fallback); a reminder goes out on the
+first poll after a slot if the user has due cards and `users.due_notified_at` is older than that slot.
 
 ### Conventions worth knowing before editing
 

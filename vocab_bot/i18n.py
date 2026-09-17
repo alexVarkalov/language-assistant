@@ -45,6 +45,27 @@ _MESSAGES: Mapping[str, Mapping[str, str]] = {
         "menu_button_locale": "Change interface language",
         "menu_button_back": "Back",
         "menu_choose_locale": "Choose interface language:",
+        "start_reminders": "<code>Reminders: {frequency} at {times} ({timezone})</code>",
+        "start_set_reminders": (
+            "Choose how often to be reminded about due cards: <code>/reminders 1</code>, "
+            "<code>2</code> or <code>3</code> (times a day)."
+        ),
+        "reminders_per_day_one": "once a day",
+        "reminders_per_day_few": "{count} times a day",
+        "reminders_per_day_many": "{count} times a day",
+        "reminders_current": (
+            "Review reminders: {frequency} at {times} ({timezone}).\n"
+            "They are sent only when you have cards to review.\n"
+            "Change with /reminders 1, /reminders 2 or /reminders 3."
+        ),
+        "reminders_invalid": "Choose 1, 2 or 3 reminders a day, e.g. /reminders 2",
+        "reminders_updated": "Reminders updated: {frequency} at {times} ({timezone}).",
+        "menu_current_reminders": "Reminders: <b>{frequency}</b> at {times} ({timezone})",
+        "menu_button_reminders": "Change reminder frequency",
+        "menu_choose_reminders": (
+            "How often should I remind you about cards to review?\n"
+            "Times are in your timezone ({timezone}); reminders are sent only when cards are due."
+        ),
         "translation_could_not": "Could not translate: {error}",
         "translation_failed_unexpectedly": "Translation failed unexpectedly. Try again later.",
         "translation_choose": "<b>{source}</b> ({pair})\nChoose a translation to save:\n{options}",
@@ -106,6 +127,27 @@ _MESSAGES: Mapping[str, Mapping[str, str]] = {
         "menu_button_locale": "Изменить язык интерфейса",
         "menu_button_back": "Назад",
         "menu_choose_locale": "Выберите язык интерфейса:",
+        "start_reminders": "<code>Напоминания: {frequency} в {times} ({timezone})</code>",
+        "start_set_reminders": (
+            "Выберите, как часто напоминать о карточках: <code>/reminders 1</code>, "
+            "<code>2</code> или <code>3</code> (раз в день)."
+        ),
+        "reminders_per_day_one": "раз в день",
+        "reminders_per_day_few": "{count} раза в день",
+        "reminders_per_day_many": "{count} раз в день",
+        "reminders_current": (
+            "Напоминания о повторении: {frequency} в {times} ({timezone}).\n"
+            "Они приходят только когда есть карточки к повторению.\n"
+            "Изменить: /reminders 1, /reminders 2 или /reminders 3."
+        ),
+        "reminders_invalid": "Выберите 1, 2 или 3 напоминания в день, например /reminders 2",
+        "reminders_updated": "Напоминания обновлены: {frequency} в {times} ({timezone}).",
+        "menu_current_reminders": "Напоминания: <b>{frequency}</b> в {times} ({timezone})",
+        "menu_button_reminders": "Изменить частоту напоминаний",
+        "menu_choose_reminders": (
+            "Как часто напоминать о карточках к повторению?\n"
+            "Время указано в вашем часовом поясе ({timezone}); напоминания приходят только когда есть карточки."
+        ),
         "translation_could_not": "Не удалось перевести: {error}",
         "translation_failed_unexpectedly": "Ошибка перевода. Попробуйте еще раз позже.",
         "translation_choose": "<b>{source}</b> ({pair})\nВыберите перевод для сохранения:\n{options}",

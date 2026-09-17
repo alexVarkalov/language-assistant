@@ -28,7 +28,7 @@ def test_register_handlers_wires_expected_handlers_without_wordbank() -> None:
 
     register_handlers(app)
 
-    assert app.add_handler.call_count == 12
+    assert app.add_handler.call_count == 13
 
 
 def test_register_handlers_wires_wordbank_when_configured() -> None:
@@ -36,4 +36,4 @@ def test_register_handlers_wires_wordbank_when_configured() -> None:
 
     register_handlers(app)
 
-    assert app.add_handler.call_count == 14
+    assert app.add_handler.call_count == 15

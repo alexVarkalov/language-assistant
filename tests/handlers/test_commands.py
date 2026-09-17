@@ -12,6 +12,7 @@ from vocab_bot.handlers import commands as commands_module
 from vocab_bot.handlers.commands import (
     cmd_locale,
     cmd_menu,
+    cmd_reminders,
     cmd_start,
     cmd_timezone,
     cmd_users,
@@ -92,7 +93,9 @@ async def test_cmd_start_happy_path(monkeypatch: pytest.MonkeyPatch) -> None:
     await cmd_start(update, context)
 
     update.effective_message.reply_html.assert_awaited_once()
-    assert "menu button" in update.effective_message.reply_html.await_args.args[0]
+    text = update.effective_message.reply_html.await_args.args[0]
+    assert "menu button" in text
+    assert "Reminders: once a day at 09:00 (UTC)" in text
 
 
 @pytest.mark.asyncio
@@ -238,3 +241,60 @@ async def test_cmd_menu(monkeypatch: pytest.MonkeyPatch) -> None:
     await cmd_menu(update, context)
 
     update.effective_message.reply_html.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_cmd_reminders_current_when_no_args(monkeypatch: pytest.MonkeyPatch) -> None:
+    update = _update()
+    context = _ctx([])
+    monkeypatch.setattr(
+        commands_module,
+        "record_user_seen",
+        AsyncMock(return_value=make_user(is_allowed=True, timezone="Europe/Warsaw", reminders_per_day=2)),
+    )
+
+    await cmd_reminders(update, context)
+
+    update.effective_message.reply_text.assert_awaited_once()
+    text = update.effective_message.reply_text.await_args.args[0]
+    assert "2 times a day at 09:00, 19:00 (Europe/Warsaw)" in text
+    context.application.bot_data["user_service"].set_reminders_per_day.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("arg", ["0", "4", "two", ""])
+async def test_cmd_reminders_rejects_invalid_option(monkeypatch: pytest.MonkeyPatch, arg: str) -> None:
+    update = _update()
+    context = _ctx([arg])
+    monkeypatch.setattr(commands_module, "record_user_seen", AsyncMock(return_value=make_user(is_allowed=True)))
+
+    await cmd_reminders(update, context)
+
+    context.application.bot_data["user_service"].set_reminders_per_day.assert_not_awaited()
+    assert "1, 2 or 3" in update.effective_message.reply_text.await_args.args[0]
+
+
+@pytest.mark.asyncio
+async def test_cmd_reminders_updates(monkeypatch: pytest.MonkeyPatch) -> None:
+    update = _update()
+    context = _ctx(["3"])
+    monkeypatch.setattr(commands_module, "record_user_seen", AsyncMock(return_value=make_user(is_allowed=True)))
+    context.application.bot_data["user_service"].set_reminders_per_day.return_value = make_user(reminders_per_day=3)
+
+    await cmd_reminders(update, context)
+
+    context.application.bot_data["user_service"].set_reminders_per_day.assert_awaited_once_with(123, 3)
+    text = update.effective_message.reply_text.await_args.args[0]
+    assert "3 times a day at 09:00, 14:00, 19:00 (UTC)" in text
+
+
+@pytest.mark.asyncio
+async def test_cmd_reminders_access_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    update = _update()
+    context = _ctx(["2"])
+    monkeypatch.setattr(commands_module, "record_user_seen", AsyncMock(return_value=make_user(is_allowed=False)))
+
+    await cmd_reminders(update, context)
+
+    context.application.bot_data["user_service"].set_reminders_per_day.assert_not_awaited()
+    update.effective_message.reply_text.assert_awaited_once()

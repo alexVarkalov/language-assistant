@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from vocab_bot.persistence.models import CardRecord, UserRecord
-from vocab_bot.persistence.types import BotUser, Card
+from vocab_bot.persistence.types import DEFAULT_REMINDERS_PER_DAY, BotUser, Card
 
 
 def utc_now() -> datetime:
@@ -39,4 +39,7 @@ def to_user(record: UserRecord) -> BotUser:
         updated_at=record.updated_at,
         last_seen_at=record.last_seen_at,
         due_notified_at=record.due_notified_at,
+        reminders_per_day=(
+            DEFAULT_REMINDERS_PER_DAY if record.reminders_per_day is None else int(record.reminders_per_day)
+        ),
     )
