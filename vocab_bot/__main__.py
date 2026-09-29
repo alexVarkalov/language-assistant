@@ -36,7 +36,11 @@ async def _post_init(application: Application) -> None:
     await db.init()
 
     application.bot_data["http_client"] = httpx.AsyncClient()
-    application.job_queue.scheduler.configure(timezone="UTC")
+    # Do not call application.job_queue.scheduler.configure() here. APScheduler's configure()
+    # replaces the whole configuration, which drops the executor python-telegram-bot registered for
+    # the JobQueue: jobs then run on a default executor APScheduler makes for itself, and shutting
+    # the bot down raises AttributeError from JobQueue.stop(). The scheduler already runs in UTC —
+    # that is what JobQueue.scheduler_configuration sets when the bot has no Defaults.
 
     settings: Settings = application.bot_data["settings"]
     user_repo = UserRepository(db)

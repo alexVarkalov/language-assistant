@@ -115,6 +115,12 @@ first poll after a slot if the user has due cards and `users.due_notified_at` is
 - **HTML replies**: `reply_html`/`edit_message_text(parse_mode=HTML)`; escape dynamic content with `html.escape()`.
 - **Timestamps**: always UTC-aware (`datetime.now(tz=UTC)`); user timezone stored as IANA string, converted for
   display with `zoneinfo.ZoneInfo`.
+- **Never call `job_queue.scheduler.configure()`**: APScheduler's `configure()` replaces the entire
+  configuration, so it drops the executor PTB registered for the `JobQueue`. Jobs keep running (APScheduler
+  makes itself a default executor) but `JobQueue.stop()` then raises `AttributeError: 'AsyncIOExecutor'
+  object has no attribute '_pending_futures'` and the bot exits 1 on every shutdown. The scheduler is
+  already UTC. If a scheduler setting is ever genuinely needed, merge `**job_queue.scheduler_configuration`
+  into the call. Guarded by `tests/test_main_post_init.py`.
 - **New feature = touch layers in order**: persistence → repository → service → handler and/or webapi route.
   Never import `telegram` in `services/` or `persistence/`; never import `fastapi` outside `webapi/`. Helpers
   both entry points need live in `services/` (e.g. `user_has_access`, `build_due_card`).
