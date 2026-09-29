@@ -457,14 +457,22 @@ fi
 host=$(hostname -s)
 body=$(printf '%s: %s' "$host" "$text" | head -c 3500)     # Telegram caps a message at 4096 chars
 IFS=',' read -ra ids <<< "$admins"
+status=0
 for id in "${ids[@]}"; do
     id=${id//[[:space:]]/}
     [ -n "$id" ] || continue
-    curl -sS --max-time 15 -o /dev/null \
+    # Telegram answers 200 with {"ok":false,...} when the chat blocked the bot or the id is wrong, so the
+    # body has to be checked: an alerter that fails silently is worse than no alerter at all.
+    response=$(curl -sS --max-time 15 \
         --data-urlencode "chat_id=${id}" \
         --data-urlencode "text=${body}" \
-        "https://api.telegram.org/bot${token}/sendMessage"
+        "https://api.telegram.org/bot${token}/sendMessage")
+    if ! printf '%s' "$response" | grep -q '"ok":true'; then
+        echo "alert: Telegram refused the message to ${id}: ${response}" >&2
+        status=1
+    fi
 done
+exit $status
 ```
 
 `/home/app/bin/monitor-deployments.sh` — runs the check for every deployment on the host and alerts only
