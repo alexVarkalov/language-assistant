@@ -25,9 +25,17 @@ BOT="${NAME}-bot"
 API="${NAME}-api"
 failures=0
 
-ok()   { printf '  \033[32mok\033[0m      %s\n' "$1"; }
-warn() { printf '  \033[33mwarn\033[0m    %s\n' "$1"; }
-bad()  { printf '  \033[31mFAIL\033[0m    %s\n' "$1"; failures=$((failures + 1)); }
+# Colour only for a human at a terminal: this output also gets piped into Telegram alerts by the
+# monitoring cron, where escape codes are just noise.
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
+    C_OK=$'\033[32m'; C_WARN=$'\033[33m'; C_BAD=$'\033[31m'; C_OFF=$'\033[0m'
+else
+    C_OK=''; C_WARN=''; C_BAD=''; C_OFF=''
+fi
+
+ok()   { printf '  %sok%s      %s\n' "$C_OK" "$C_OFF" "$1"; }
+warn() { printf '  %swarn%s    %s\n' "$C_WARN" "$C_OFF" "$1"; }
+bad()  { printf '  %sFAIL%s    %s\n' "$C_BAD" "$C_OFF" "$1"; failures=$((failures + 1)); }
 
 # Start of the journal window for a unit: its start time minus LOOKBEHIND, in the host's local time
 # (which is what journalctl --since expects). Falls back to a fixed window if the unit never started.
@@ -96,8 +104,8 @@ while :; do
 done
 
 if [ "$failures" -eq 0 ]; then
-    printf '\n\033[32mPASS\033[0m — %s looks healthy\n' "$NAME"
+    printf '\n%sPASS%s — %s looks healthy\n' "$C_OK" "$C_OFF" "$NAME"
 else
-    printf '\n\033[31mFAIL\033[0m — %s: %s check(s) need attention\n' "$NAME" "$failures"
+    printf '\n%sFAIL%s — %s: %s check(s) need attention\n' "$C_BAD" "$C_OFF" "$NAME" "$failures"
 fi
 exit $(( failures > 0 ))

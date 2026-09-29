@@ -423,6 +423,119 @@ Restore path is the one used for the Pi migration: `pg_restore -U langbot -h loc
 Test the restore once after setting this up — a backup that has never been restored is a hope, not a
 backup.
 
+## 11) Monitoring and alerts
+
+Section 8's check runs at deploy time; this one covers the days in between. Both units are
+`Restart=always` with nothing subscribed to failure, so on their own they are silent in both directions:
+a crash loop quietly restarts forever, and a unit that ends up `failed` just stays there. The bug in
+`2d6cadb` sat in production for fifteen days for exactly that reason.
+
+Two pieces, both driven by `scripts/check_deployment.sh`: a daily cron that reports what it finds, and a
+systemd `OnFailure=` hook that reports immediately. Alerts go over the bot itself — the admin already has
+that chat open, and it needs no new service or credential.
+
+`/home/app/bin/alert.sh` — reads the token and admin IDs from a deployment's `.env`, so no secret is ever
+written into a script, a unit file or this repo:
+
+```bash
+#!/usr/bin/env bash
+# Send a short message to the admins of a deployment, using that deployment's own bot.
+set -uo pipefail
+ENV_FILE=${ALERT_ENV_FILE:-/home/app/language-assistant/.env}
+text=${1:-"(no message)"}
+
+val() { sed -n "s/^$1=//p" "$ENV_FILE" | tail -1 | tr -d '\r"'"'"''; }
+token=$(val BOT_TOKEN)
+admins=$(val ADMIN_USER_IDS)
+if [ -z "$token" ] || [ -z "$admins" ]; then
+    echo "alert: BOT_TOKEN or ADMIN_USER_IDS missing from $ENV_FILE" >&2
+    exit 1
+fi
+
+host=$(hostname -s)
+body=$(printf '%s: %s' "$host" "$text" | head -c 3500)     # Telegram caps a message at 4096 chars
+IFS=',' read -ra ids <<< "$admins"
+for id in "${ids[@]}"; do
+    id=${id//[[:space:]]/}
+    [ -n "$id" ] || continue
+    curl -sS --max-time 15 -o /dev/null \
+        --data-urlencode "chat_id=${id}" \
+        --data-urlencode "text=${body}" \
+        "https://api.telegram.org/bot${token}/sendMessage"
+done
+```
+
+`/home/app/bin/monitor-deployments.sh` — runs the check for every deployment on the host and alerts only
+when something is wrong. This is the one file that knows the host's layout, which is why it lives here and
+not in the repo:
+
+```bash
+#!/usr/bin/env bash
+set -uo pipefail
+report=""
+
+check() {   # name  api-port  checkout
+    local out
+    if ! out=$(NO_COLOR=1 bash "$3/scripts/check_deployment.sh" "$1" "$2" 2>&1); then
+        report="${report}${out}"$'\n\n'
+    fi
+}
+
+check language-assistant       8080 /home/app/language-assistant
+check language-assistant-ru-en 8081 /home/app/language-assistant-ru-en
+
+if [ -n "$report" ]; then
+    printf '%s' "$report"
+    /home/app/bin/alert.sh "$report"
+    exit 1
+fi
+echo "$(date -u +%FT%TZ) all deployments healthy"
+```
+
+```bash
+chmod +x /home/app/bin/alert.sh /home/app/bin/monitor-deployments.sh
+/home/app/bin/alert.sh "test alert, ignore"      # confirm it arrives in Telegram
+/home/app/bin/monitor-deployments.sh             # run once by hand
+crontab -e
+```
+
+Cron line — 06:30 UTC, after the 03:15 backup and before the earliest reminder slot (09:00 in a European
+user's local time), so a broken night is known before the first reminder should have gone out:
+
+```cron
+30 6 * * * /home/app/bin/monitor-deployments.sh >> /home/app/monitor.log 2>&1
+```
+
+For immediate notice rather than next-morning notice, subscribe the units to a failure handler.
+`/etc/systemd/system/alert@.service`:
+
+```ini
+[Unit]
+Description=Telegram alert that %i failed
+
+[Service]
+Type=oneshot
+User=app
+ExecStart=/home/app/bin/alert.sh "unit %i entered a failed state - check journalctl -u %i -n 50"
+```
+
+Then one drop-in per unit, which leaves the unit files in section 4 untouched:
+
+```bash
+for u in language-assistant-bot language-assistant-api \
+         language-assistant-ru-en-bot language-assistant-ru-en-api; do
+    sudo mkdir -p "/etc/systemd/system/$u.service.d"
+    printf '[Unit]\nOnFailure=alert@%%n.service\n' | sudo tee "/etc/systemd/system/$u.service.d/onfailure.conf"
+done
+sudo systemctl daemon-reload                     # no restart needed; nothing is interrupted
+systemctl show language-assistant-bot -p OnFailure       # verify it took
+sudo systemctl start alert@test.service          # verify the handler itself delivers
+```
+
+`OnFailure=` fires when a unit enters `failed`, which with `Restart=always` means the restart limit was hit
+(`DefaultStartLimitBurst`, 5 starts in 10s) — a fast crash loop. A slow one, restarting every few minutes
+forever, never reaches `failed`; that is what the `NRestarts` warning in the daily check is for.
+
 ## Second language pair on the same host
 
 One VPS can run several deployments side by side; each is fully separate (own bot token, `.env`, database,

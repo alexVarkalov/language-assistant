@@ -165,6 +165,11 @@ first poll after a slot if the user has due cards and `users.due_notified_at` is
   journal window starts before the unit did, so a crash while the previous process was shutting down (the
   `scheduler.configure()` bug below, unnoticed for 15 days) shows up instead of being hidden by the restart. The frontend is built locally
   (`webapp/`: `npm ci && npm run build`) and rsynced to the site root — the VPS has no Node.
+- **Monitoring**: a daily cron (`/home/app/bin/monitor-deployments.sh`, 06:30 UTC) runs
+  `scripts/check_deployment.sh` for both deployments and messages `ADMIN_USER_IDS` over the bot when a check
+  fails; an `OnFailure=alert@%n.service` drop-in on each unit reports a crash immediately. Both are set up in
+  `docs/miniapp/deployment.md` § 11. Neither is in this repo: they hold the host's layout and read the token
+  from `.env`.
 - **Backups**: nightly `pg_dump` of every database via cron on the droplet (`/home/app/backups`, 30-day
   retention) plus weekly Droplet snapshots. Restore path is in `deployment.md` §10.
 - **Local dev has no Postgres**: unit tests are mock/fake based (see table below); anything DB-related is
