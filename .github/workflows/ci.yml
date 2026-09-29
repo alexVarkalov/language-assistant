@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: ruff + pytest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: "3.14"
+
+      # --extra api as well as dev: webapi/ imports fastapi, and --frozen keeps uv.lock honest.
+      - name: Install dependencies
+        run: uv sync --frozen --extra dev --extra api
+
+      - name: ruff check
+        run: uv run --extra dev ruff check .
+
+      - name: ruff format
+        run: uv run --extra dev ruff format --check .
+
+      - name: pytest
+        run: uv run --extra dev pytest
+
+      - name: shellcheck
+        run: uvx --from shellcheck-py shellcheck scripts/*.sh
+
+  webapp:
+    name: svelte-check + vitest
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: webapp
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: webapp/package-lock.json
+
+      - run: npm ci
+
+      - name: svelte-check
+        run: npm run check
+
+      - name: vitest
+        run: npm run test
+
+      # The VPS has no Node, so the frontend is built on someone's laptop and rsynced. Building it here
+      # too means a broken build is caught on the commit rather than in the middle of a deploy.
+      - name: build
+        run: npm run build

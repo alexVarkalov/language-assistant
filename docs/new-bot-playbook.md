@@ -88,7 +88,8 @@ newbot/
 ├── botfather_texts.txt        # /setcommands, /setdescription, /setabouttext texts, kept in sync with handlers
 ├── .env.example               # every variable, with a comment and its default; mirrors Settings.from_env()
 ├── .gitignore                 # .env, .env.*, data/, *.pdf, webapp/dist, webapp/node_modules, caches, .idea
-├── .pre-commit-config.yaml    # ruff-check --fix, ruff-format, pytest (always_run)
+├── .pre-commit-config.yaml    # ruff-check --fix, ruff-format, shellcheck, pytest (always_run)
+├── .github/workflows/ci.yml   # the real gate: same checks on every push/PR (pre-commit is per clone)
 ├── .claude/settings.json      # allow-list of safe commands (uv run pytest, ruff, git status/diff/log, ls, cat…)
 ├── pyproject.toml
 ├── uv.lock                    # committed
@@ -242,6 +243,11 @@ webapi    ─┴─►  services  →  repositories  →  persistence (store mix
 - `@pytest.mark.asyncio` on async tests; `tests/helpers.py::make_user(**overrides)` as the one user factory.
 - Every handler gets at least: no-message returns, access-disabled path, happy path.
 - Tests run on every commit via pre-commit (`always_run: true`, `pass_filenames: false`). Commit only green.
+- **CI runs them again.** Pre-commit lives in `.git/hooks`, so it is per clone, skipped by `--no-verify`, and
+  silently absent in a fresh checkout — which is exactly how vocab_bot spent a while with nothing running its
+  suite automatically. Copy `.github/workflows/ci.yml`: `uv sync --frozen` (so an uncommitted `uv.lock` fails
+  the build), `ruff check`, `ruff format --check`, `pytest`, `shellcheck scripts/*.sh`, and a second job
+  building the frontend, which otherwise is only ever built on a laptop.
 - Anything that needs a real Postgres is verified on the host after deploy (`journalctl`, `/api/health`).
 
 `.pre-commit-config.yaml` (copy verbatim, bump the ruff rev):
@@ -452,21 +458,21 @@ Ordered by expected payoff.
    `journalctl`. Add `application.add_error_handler(on_error)` that logs and sends a short message to
    `ADMIN_USER_IDS` with a rate limit (one per error class per 10 minutes). Cheap, and you learn about
    breakage from your phone.
-2. **GitHub Actions CI** running `ruff check`, `ruff format --check`, `pytest`. Pre-commit is local-only
-   and can be bypassed with `--no-verify`; CI is the real gate.
-3. **Alembic from day 0.** Additive raw SQL works until the first rename, index or backfill. Setting Alembic
+2. **Alembic from day 0.** Additive raw SQL works until the first rename, index or backfill. Setting Alembic
    up on an empty schema takes 20 minutes; retrofitting it onto a live DB takes an evening.
-4. **A `deploy.sh`/Makefile target** that does pull → sync → restart → health check for a named checkout,
-   so updating two or three deployments is one command per checkout instead of four.
-5. **`/health` for the bot process too.** With a Mini App the API has `/api/health`; the bot has nothing.
+3. **A `deploy.sh`/Makefile target** that does pull → sync → restart → check for a named checkout, so
+   updating two or three deployments is one command per checkout instead of four. The check half already
+   exists as `scripts/check_deployment.sh` (units active, `/api/health`, journal clean across the *previous*
+   process's shutdown, `due_poll` firing) — copy it.
+4. **`/health` for the bot process too.** With a Mini App the API has `/api/health`; the bot has nothing.
    Cheapest option: the bot writes a heartbeat timestamp to the `users`-style table or a `bot_status` row on
    every poll tick, and the API health endpoint reports it. Alternative: systemd `WatchdogSec` + `sd_notify`.
-6. **Real-Postgres tests in CI** (a `postgres` service container) for the store layer, in addition to the
+5. **Real-Postgres tests in CI** (a `postgres` service container) for the store layer, in addition to the
    fakes. The fakes catch call shape, not SQL, and the one production bug that slipped through
    (`insert_card_if_missing` always reporting duplicates) was exactly a SQL-semantics bug.
-7. **Mark users unreachable on `Forbidden`.** Right now a user who blocked the bot is retried after every
+6. **Mark users unreachable on `Forbidden`.** Right now a user who blocked the bot is retried after every
    cool-down. Store `unreachable_since` and skip them until they send a message again (which clears it).
-8. **Extract a shared kit only at the third copy.** The user store, access control, i18n helper, `Settings`
+7. **Extract a shared kit only at the third copy.** The user store, access control, i18n helper, `Settings`
    helpers, initData auth and test fakes are identical between bots. Copy them for the new bot; if a third
    bot appears, extract a private `tgbot-kit` package (installed from git via `uv`) rather than maintaining
    three copies. Two copies are cheaper than a premature library.
@@ -484,8 +490,8 @@ Ordered by expected payoff.
 ## 12) Bootstrap checklist (do in this order)
 
 1. BotFather: `/newbot`, save the token; note your Telegram ID for `ADMIN_USER_IDS`.
-2. Create the repo, copy: this playbook, `.gitignore`, `.pre-commit-config.yaml`, `.claude/settings.json`,
-   `pyproject.toml` (renamed), `.env.example` (trimmed).
+2. Create the repo, copy: this playbook, `.gitignore`, `.pre-commit-config.yaml`, `.github/workflows/ci.yml`,
+   `.claude/settings.json`, `pyproject.toml` (renamed), `.env.example` (trimmed).
 3. Copy verbatim from vocab_bot: `config.py` (trim fields), `i18n.py` (trim keys), `db.py`,
    `persistence/{models(users only),types,utils,users}.py`, `repositories/users.py`, `services/users.py`,
    `handlers/{__init__,common,commands}.py` (start/menu/locale/timezone/admin), `__main__.py`,

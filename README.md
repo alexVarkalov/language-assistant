@@ -403,7 +403,22 @@ is in `docs/miniapp/deployment.md`, "Second language pair on the same host".
 ## Development
 
 Backend: `uv sync --extra dev --extra api`, then `uv run --extra dev pytest`. Frontend (`webapp/`, Node ≥ 20):
-`npm ci`, `npm test`, `npm run check`, `npm run build`. Pre-commit runs ruff + pytest on every commit.
+`npm ci`, `npm test`, `npm run check`, `npm run build`. Pre-commit runs ruff, shellcheck and pytest on every
+commit, and [CI](.github/workflows/ci.yml) runs the same checks plus the frontend build on every push and
+pull request.
+
+### Continuous integration
+
+`.github/workflows/ci.yml` has two jobs, both of which must pass:
+
+| Job | Runs |
+|---|---|
+| `ruff + pytest` | `uv sync --frozen --extra dev --extra api`, `ruff check`, `ruff format --check`, `pytest`, `shellcheck scripts/*.sh` |
+| `svelte-check + vitest` | `npm ci`, `npm run check`, `npm run test`, `npm run build` |
+
+`--frozen` means a dependency change that was not committed to `uv.lock` fails the build rather than
+silently resolving to something else. The frontend build runs in CI because the VPS has no Node: the
+`dist/` that gets deployed is built on a laptop, so this is the only automated check that it still builds.
 
 ### Run Ruff
 
@@ -482,6 +497,8 @@ git commit
 - `docs/miniapp/`: Mini App design, API contract, implementation plan and the VPS deployment guide
 - `docs/new-bot-playbook.md`: reusable recipe (stack, layer rules, conventions, testing, deployment, bootstrap checklist)
   for starting another Telegram bot from this project
+- `scripts/check_deployment.sh`: post-deploy smoke check, run on the host (see
+  [`docs/miniapp/deployment.md`](docs/miniapp/deployment.md) § 8)
 - `scripts/canonicalize_card_orientation.py`: one-off migration that stores existing cards
   native-language-first and merges mirrored duplicates (see [Review direction](#review-direction))
 - `scripts/parse_ru_pl_dictionary.py`: dev-only tool that regenerates the wordbank JSON from the source PDF

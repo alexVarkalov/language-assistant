@@ -47,10 +47,17 @@ uv run --extra dev pytest tests/handlers/test_commands.py
 uv run --extra dev pytest tests/handlers/test_commands.py::test_cmd_start_access_disabled
 uv run --extra dev pytest -k "review"
 
-# Pre-commit (runs ruff-check --fix, ruff-format, pytest on every commit)
+# Pre-commit (runs ruff-check --fix, ruff-format, shellcheck, pytest on every commit)
 uv run --extra dev pre-commit install       # once per clone
 uv run --extra dev pre-commit run --all-files
+
+# Post-deploy smoke check, run on the droplet (see docs/miniapp/deployment.md § 8)
+bash scripts/check_deployment.sh <service-prefix> <api-port>
 ```
+
+`.github/workflows/ci.yml` runs the same checks on every push and pull request (`uv sync --frozen`, ruff,
+pytest, shellcheck; plus `npm run check`/`test`/`build` for `webapp/`). Pre-commit is per clone and easy to
+forget — CI is what actually gates.
 
 Requires Python 3.14+. `DEEPL_API_KEY` is required at startup — `TRANSLATOR` only supports `deepl` (MyMemory is
 disabled in `config.py`). `DATABASE_URL` defaults to a local Postgres instance; there is no SQLite fallback.
@@ -153,7 +160,10 @@ first poll after a slot if the user has due cards and `users.due_notified_at` is
   wordbank JSON). The operator's machine has an SSH alias for the droplet and the deployment details in Claude's
   session memory; ask the owner if you don't have them.
 - **Update flow** (per checkout, both must be updated): `git pull` → `uv sync --frozen --extra api` → restart
-  the checkout's two services. Additive DB migrations run on service start. The frontend is built locally
+  the checkout's two services → `bash scripts/check_deployment.sh <prefix> <port>`. Additive DB migrations run
+  on service start. The check is not optional: it is the only step that looks at the *bot* unit, and its
+  journal window starts before the unit did, so a crash while the previous process was shutting down (the
+  `scheduler.configure()` bug below, unnoticed for 15 days) shows up instead of being hidden by the restart. The frontend is built locally
   (`webapp/`: `npm ci && npm run build`) and rsynced to the site root — the VPS has no Node.
 - **Backups**: nightly `pg_dump` of every database via cron on the droplet (`/home/app/backups`, 30-day
   retention) plus weekly Droplet snapshots. Restore path is in `deployment.md` §10.

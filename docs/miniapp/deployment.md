@@ -312,13 +312,42 @@ git pull origin main
 uv sync --frozen --extra api
 sudo systemctl restart language-assistant-api language-assistant-bot
 # frontend, when webapp/ changed: build locally, rsync dist/ (step 6)
+bash scripts/check_deployment.sh language-assistant 8080     # <- do not skip this
 ```
 
 Additive DB migrations run in `Database._init_sync` on both processes' startup; restarting either applies them.
 
+### Verifying a deploy
+
+`scripts/check_deployment.sh <name> <api-port>` is the last step of every update, and the only one that
+looks at the bot. It exits 0 when the deployment is healthy and 1 when something needs attention:
+
+| Check | Why |
+|---|---|
+| `<name>-bot` and `<name>-api` are `active` | the obvious one; also warns when a unit has auto-restarted, which `Restart=always` otherwise hides |
+| `GET /api/health` on the loopback port | separates "the API is broken" from "nginx is broken" |
+| no `Traceback` / `ERROR` in either journal | the window deliberately **starts two minutes before the unit did**, so it covers the previous process shutting down |
+| a `due_poll` job ran successfully | a bot can accept updates with a dead job queue, and then reminders silently stop |
+
+That third row is not paranoia. `job_queue.scheduler.configure()` (removed in `2d6cadb`) raised
+`AttributeError` only while the *old* process exited, so `systemctl restart` ended with the unit `active`
+and the failure was visible for fifteen days to nobody. A check that only looks at the current process
+would have passed every time.
+
+Both deployments need it after an update that touches both checkouts:
+
+```bash
+bash /home/app/language-assistant/scripts/check_deployment.sh language-assistant 8080
+bash /home/app/language-assistant-ru-en/scripts/check_deployment.sh language-assistant-ru-en 8081
+```
+
+It waits up to 45s for the `due_poll` evidence (the job is registered with `first=10`); override with
+`CHECK_WAIT_SECONDS` and the journal look-behind with `CHECK_LOOKBEHIND`.
+
 ## 9) Monitoring / troubleshooting
 
 ```bash
+bash scripts/check_deployment.sh            # first: is anything wrong at all
 journalctl -u language-assistant-api -f
 journalctl -u language-assistant-bot -f
 sudo tail -f /var/log/nginx/error.log
@@ -417,7 +446,8 @@ zone, `certbot --nginx -d <second hostname>`, and the same `webapp/dist` rsynced
 frontend has no baked-in configuration; it talks to `/api/` on its own origin). Add the second database to
 the loop in `backup-db.sh`. Budget ≈ 150 MB RAM per extra bot + API pair; a 1 GB Droplet with swap holds two.
 
-Updating (section 8) is per checkout: `git pull` + `uv sync` + restart in each directory.
+Updating (section 8) is per checkout: `git pull` + `uv sync` + restart + `scripts/check_deployment.sh`
+in each directory.
 
 ## Alternative: keep bot + Postgres on the Pi, API on the VPS
 
