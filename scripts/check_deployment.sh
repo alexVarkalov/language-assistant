@@ -64,13 +64,22 @@ for unit in "$BOT" "$API"; do
     fi
 done
 
-# 2) The API answers on its own port, behind nginx or not.
-if health=$(curl -fsS --max-time 10 "http://127.0.0.1:${PORT}/api/health" 2>&1) &&
-    printf '%s' "$health" | grep -q '"status":[[:space:]]*"ok"'; then
-    ok "GET /api/health -> $health"
-else
-    bad "GET http://127.0.0.1:${PORT}/api/health -> ${health:-no response}"
-fi
+# 2) The API answers on its own port, behind nginx or not. Retried, because `systemctl restart` returns
+# when the process has been spawned, not when uvicorn has bound its port — on a small box restarting four
+# units at once, that gap is over ten seconds.
+deadline=$((SECONDS + WAIT_SECONDS))
+while :; do
+    if health=$(curl -fsS --max-time 10 "http://127.0.0.1:${PORT}/api/health" 2>&1) &&
+        printf '%s' "$health" | grep -q '"status":[[:space:]]*"ok"'; then
+        ok "GET /api/health -> $health"
+        break
+    fi
+    if [ "$SECONDS" -ge "$deadline" ]; then
+        bad "GET http://127.0.0.1:${PORT}/api/health after ${WAIT_SECONDS}s -> ${health:-no response}"
+        break
+    fi
+    sleep 5
+done
 
 # 3) Neither unit logged an error, including while the previous process was shutting down.
 for unit in "$BOT" "$API"; do

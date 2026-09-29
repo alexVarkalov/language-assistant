@@ -341,8 +341,10 @@ bash /home/app/language-assistant/scripts/check_deployment.sh language-assistant
 bash /home/app/language-assistant-ru-en/scripts/check_deployment.sh language-assistant-ru-en 8081
 ```
 
-It waits up to 45s for the `due_poll` evidence (the job is registered with `first=10`); override with
-`CHECK_WAIT_SECONDS` and the journal look-behind with `CHECK_LOOKBEHIND`.
+Run straight after a restart it waits, up to 45s each, for `/api/health` to answer and for `due_poll`
+evidence to appear: `systemctl restart` returns when the process is spawned, not when uvicorn has bound its
+port, and the job is registered with `first=10`. Override with `CHECK_WAIT_SECONDS`, and the journal
+look-behind with `CHECK_LOOKBEHIND`.
 
 ## 9) Monitoring / troubleshooting
 
