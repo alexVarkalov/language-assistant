@@ -14,35 +14,66 @@ class CardsDb(CardStore):
         self._session_factory = FakeSessionFactory(session)
 
 
-def test_upsert_card_sync_raises_when_id_missing(monkeypatch: pytest.MonkeyPatch) -> None:
-    session = FakeSession(scalar_results=[None])
-    db = CardsDb(session)
-    monkeypatch.setattr("vocab_bot.persistence.cards.pg_insert", lambda _model: FakeInsert())
+def _patch_statements(monkeypatch: pytest.MonkeyPatch, insert: FakeInsert) -> None:
+    monkeypatch.setattr("vocab_bot.persistence.cards.pg_insert", lambda _model: insert)
     monkeypatch.setattr(
         "vocab_bot.persistence.cards.select",
-        lambda *_a, **_k: SimpleNamespace(where=lambda *_a2, **_k2: object()),
+        lambda *_a, **_k: SimpleNamespace(where=lambda *_a2, **_k2: SimpleNamespace(with_for_update=lambda: object())),
     )
 
-    when = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
-    with pytest.raises(RuntimeError, match="failed to read card id after upsert"):
-        db._upsert_card_sync(1, "EN", "RU", "hello", "privet", 2.5, 1.0, 1, when)
+
+WHEN = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
 
 
-def test_upsert_card_sync_happy_path(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_upsert_card_sync_inserts_a_word_the_user_does_not_have(monkeypatch: pytest.MonkeyPatch) -> None:
     session = FakeSession(scalar_results=[99])
     db = CardsDb(session)
-    monkeypatch.setattr("vocab_bot.persistence.cards.pg_insert", lambda _model: FakeInsert())
-    monkeypatch.setattr(
-        "vocab_bot.persistence.cards.select",
-        lambda *_a, **_k: SimpleNamespace(where=lambda *_a2, **_k2: object()),
-    )
+    _patch_statements(monkeypatch, FakeInsert())
 
-    when = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
-    card_id = db._upsert_card_sync(1, "EN", "RU", "hello", "privet", 2.5, 1.0, 1, when)
+    card_id = db._upsert_card_sync(1, "RU", "PL", "тапочки", "pantofle", 2.5, 0.0, 0, WHEN)
 
     assert card_id == 99
-    assert session.executed
     assert session.committed == 1
+
+
+def test_upsert_card_sync_adds_a_translation_to_a_card_the_user_already_has(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    existing = SimpleNamespace(id=42, target_text="kapcie (l.mn.)", ease_factor=2.7, interval_days=30.0, repetition=7)
+    # First scalar() is the insert: None means the row was already there. Second is the row itself.
+    session = FakeSession(scalar_results=[None, existing])
+    db = CardsDb(session)
+    _patch_statements(monkeypatch, FakeInsert())
+
+    card_id = db._upsert_card_sync(1, "RU", "PL", "тапочки", "pantofle", 2.5, 0.0, 0, WHEN)
+
+    assert card_id == 42
+    assert existing.target_text == "kapcie (l.mn.); pantofle"
+    # Everything the card earned is left alone.
+    assert (existing.ease_factor, existing.interval_days, existing.repetition) == (2.7, 30.0, 7)
+    assert session.committed == 1
+
+
+def test_upsert_card_sync_does_not_duplicate_a_translation_the_card_has(monkeypatch: pytest.MonkeyPatch) -> None:
+    existing = SimpleNamespace(id=42, target_text="kapcie (l.mn.)")
+    session = FakeSession(scalar_results=[None, existing])
+    db = CardsDb(session)
+    _patch_statements(monkeypatch, FakeInsert())
+
+    db._upsert_card_sync(1, "RU", "PL", "тапочки", "kapcie", 2.5, 0.0, 0, WHEN)
+
+    assert existing.target_text == "kapcie (l.mn.)"
+
+
+def test_upsert_card_sync_raises_when_the_conflicting_card_cannot_be_read(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = FakeSession(scalar_results=[None, None])
+    db = CardsDb(session)
+    _patch_statements(monkeypatch, FakeInsert())
+
+    with pytest.raises(RuntimeError, match="failed to read card id after upsert"):
+        db._upsert_card_sync(1, "EN", "RU", "hello", "privet", 2.5, 1.0, 1, WHEN)
 
 
 def test_insert_card_if_missing_sync_inserted(monkeypatch: pytest.MonkeyPatch) -> None:

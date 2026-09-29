@@ -23,6 +23,7 @@ def test_settings_from_env_happy_path(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.short_review_interval_minutes == 2
     assert settings.source_lang == "PL"
     assert settings.target_lang == "RU"
+    assert settings.native_lang is None
     assert settings.admin_user_ids == frozenset({1, 2})
     assert settings.wordbank_path is None
     assert settings.webapp_url == "https://vocab.example.com"
@@ -110,4 +111,25 @@ def test_settings_from_env_requires_webapp_url(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.delenv("WEBAPP_URL", raising=False)
 
     with pytest.raises(ValueError, match="WEBAPP_URL is required"):
+        Settings.from_env()
+
+
+def test_settings_from_env_reads_native_lang(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("BOT_TOKEN", "token")
+    monkeypatch.setenv("DEEPL_API_KEY", "deepl-key")
+    monkeypatch.setenv("SOURCE_LANG", "pl")
+    monkeypatch.setenv("TARGET_LANG", "ru")
+    monkeypatch.setenv("NATIVE_LANG", " pl ")
+
+    assert Settings.from_env().native_lang == "PL"
+
+
+def test_settings_from_env_rejects_native_lang_outside_the_pair(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("BOT_TOKEN", "token")
+    monkeypatch.setenv("DEEPL_API_KEY", "deepl-key")
+    monkeypatch.setenv("SOURCE_LANG", "pl")
+    monkeypatch.setenv("TARGET_LANG", "ru")
+    monkeypatch.setenv("NATIVE_LANG", "en")
+
+    with pytest.raises(ValueError, match="NATIVE_LANG"):
         Settings.from_env()

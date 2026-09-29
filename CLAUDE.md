@@ -120,6 +120,22 @@ first poll after a slot if the user has due cards and `users.due_notified_at` is
   both entry points need live in `services/` (e.g. `user_has_access`, `build_due_card`).
 - **Mini App is mandatory**: `Settings.from_env()` raises without `WEBAPP_URL`; Menu Button, the reminder's
   "Open in app" button and the `/start` hint are unconditional. Only `WORDBANK_PATH` remains an optional feature.
+- **Review direction is earned, not random**: `direction_for_card()` in `services/reviews.py` picks which
+  side of a card the queue prompts with, from `Card.repetition` and `Settings.native_lang` (`NATIVE_LANG`,
+  one of the pair) — `repetition` 0–2 prompts with the foreign word, 3–5 is random, 6+ prompts with the
+  native word so the user produces the foreign one. A card whose languages don't include `native_lang`
+  (or a `Settings` without one — `NATIVE_LANG` has no default) falls back to the old random pick. Note `card.source_lang` is whichever
+  language the *user typed*, not `SOURCE_LANG`, so never treat "source" as "foreign".
+- **Cards are stored native-language-first**: both save paths (`TranslationService.save_pending_as_card`,
+  `WordbankService.add_topic_words`) run `canonical_sides()` from `services/orientation.py` before hitting
+  the repository, so the unique key `(user_id, source_lang, target_lang, source_text)` collapses a word
+  typed in either language onto one card. Anything new that creates cards must do the same. `upsert_card`
+  never overwrites an existing row: it inserts, or folds the new translation into the card's target side via
+  `merge_translations()` (`vocab_bot/translations.py`, a pure module both layers may import), leaving the
+  card's SRS state alone. A card's target side is therefore a `"; "`-separated list, and comparisons there
+  ignore case and parenthesised notes so the wordbank's `kapcie (l.mn.)` survives a typed `kapcie`.
+  Legacy rows saved the other way round still work (direction is computed from `native_lang`, not from the
+  stored side); `scripts/canonicalize_card_orientation.py` rewrites them, dry-run by default.
 
 ### Production and operations
 

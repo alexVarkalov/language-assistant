@@ -7,7 +7,13 @@ from unittest.mock import AsyncMock
 import pytest
 
 from vocab_bot.persistence import Card
-from vocab_bot.services.reviews import ReviewService, build_due_card, pick_direction
+from vocab_bot.services.reviews import (
+    ReviewService,
+    build_due_card,
+    direction_for_card,
+    pick_direction,
+    review_stage,
+)
 
 
 def _card(card_id: int = 10) -> Card:
@@ -128,3 +134,90 @@ async def test_count_due_for_user_passthrough() -> None:
 
     assert await service.count_due_for_user(user_id=123) == 5
     repo.count_due_for_user.assert_awaited_once_with(123)
+
+
+def _pl_ru_card(*, repetition: int, source_lang: str = "PL", target_lang: str = "RU") -> Card:
+    """A card whose source side is Polish and target side Russian, unless swapped."""
+    now = datetime.now(tz=UTC)
+    texts = {"PL": "dom", "RU": "\u0434\u043e\u043c", "EN": "house"}
+    return Card(
+        id=1,
+        user_id=123,
+        source_text=texts[source_lang],
+        target_text=texts[target_lang],
+        source_lang=source_lang,
+        target_lang=target_lang,
+        ease_factor=2.5,
+        interval_days=1.0,
+        repetition=repetition,
+        next_review_at=now,
+    )
+
+
+@pytest.mark.parametrize(
+    ("repetition", "expected"),
+    [(0, "recognition"), (2, "recognition"), (3, "mixed"), (5, "mixed"), (6, "production"), (30, "production")],
+)
+def test_review_stage_follows_repetition(repetition: int, expected: str) -> None:
+    assert review_stage(repetition) == expected
+
+
+@pytest.mark.parametrize("source_lang", ["PL", "RU"])
+def test_new_card_prompts_with_the_foreign_word(source_lang: str) -> None:
+    target_lang = "RU" if source_lang == "PL" else "PL"
+    card = _pl_ru_card(repetition=0, source_lang=source_lang, target_lang=target_lang)
+
+    due = build_due_card(card, direction_for_card(card, "RU"))
+
+    assert due.prompt_lang == "PL"
+    assert due.answer_lang == "RU"
+
+
+@pytest.mark.parametrize("source_lang", ["PL", "RU"])
+def test_well_known_card_prompts_with_the_native_word(source_lang: str) -> None:
+    target_lang = "RU" if source_lang == "PL" else "PL"
+    card = _pl_ru_card(repetition=9, source_lang=source_lang, target_lang=target_lang)
+
+    due = build_due_card(card, direction_for_card(card, "RU"))
+
+    assert due.prompt_lang == "RU"
+    assert due.answer_lang == "PL"
+
+
+def test_mid_stage_card_uses_both_directions() -> None:
+    card = _pl_ru_card(repetition=4)
+    rng = random.Random(7)
+
+    seen = {direction_for_card(card, "RU", rng) for _ in range(40)}
+
+    assert seen == {"source", "target"}
+
+
+def test_direction_is_random_without_a_native_language() -> None:
+    card = _pl_ru_card(repetition=0)
+    rng = random.Random(7)
+
+    seen = {direction_for_card(card, None, rng) for _ in range(40)}
+
+    assert seen == {"source", "target"}
+
+
+def test_direction_is_random_when_no_card_side_is_native() -> None:
+    card = _pl_ru_card(repetition=0, source_lang="PL", target_lang="EN")
+    rng = random.Random(7)
+
+    seen = {direction_for_card(card, "RU", rng) for _ in range(40)}
+
+    assert seen == {"source", "target"}
+
+
+@pytest.mark.asyncio
+async def test_list_due_cards_uses_the_stage_direction() -> None:
+    repo = AsyncMock()
+    repo.list_due_for_user.return_value = [_pl_ru_card(repetition=0), _pl_ru_card(repetition=9)]
+    service = ReviewService(repo, native_lang="RU")
+
+    new_card, known_card = await service.list_due_cards_for_user(user_id=123)
+
+    assert (new_card.prompt_lang, new_card.answer_lang) == ("PL", "RU")
+    assert (known_card.prompt_lang, known_card.answer_lang) == ("RU", "PL")

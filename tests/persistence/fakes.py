@@ -66,11 +66,13 @@ class FakeInsert:
             repetition=1,
             next_review_at="ex_next_review_at",
         )
+        self.conflict_update: dict[str, Any] | None = None
 
     def values(self, **_kwargs: Any) -> FakeInsert:
         return self
 
-    def on_conflict_do_update(self, **_kwargs: Any) -> FakeInsert:
+    def on_conflict_do_update(self, **kwargs: Any) -> FakeInsert:
+        self.conflict_update = kwargs
         return self
 
     def on_conflict_do_nothing(self, **_kwargs: Any) -> FakeInsert:

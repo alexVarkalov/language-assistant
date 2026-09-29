@@ -39,6 +39,9 @@ class Settings:
     short_review_interval_minutes: int
     admin_user_ids: frozenset[int]
     wordbank_path: str | None
+    # One of source_lang/target_lang: the user's own language, driving review direction.
+    # None (NATIVE_LANG unset) keeps the old behaviour of asking every card in a random direction.
+    native_lang: str | None = None
     webapp_url: str | None = None
     webapp_api_host: str = "127.0.0.1"
     webapp_api_port: int = 8080
@@ -79,6 +82,13 @@ class Settings:
         source_lang = os.environ.get("SOURCE_LANG", "PL").strip().upper()
         target_lang = os.environ.get("TARGET_LANG", "RU").strip().upper()
         validate_language_pair(source_lang, target_lang)
+        # The user's own language: the side a review asks them to recall while a card is new, and the
+        # side shown as the prompt once they know it well. Which of SOURCE_LANG/TARGET_LANG is the
+        # learner's differs per deployment, so there is no safe default — unset means random directions.
+        native_lang = os.environ.get("NATIVE_LANG", "").strip().upper() or None
+        if native_lang is not None and native_lang not in {source_lang, target_lang}:
+            msg = f"NATIVE_LANG must be one of SOURCE_LANG/TARGET_LANG ({source_lang}/{target_lang}), got {native_lang}"
+            raise ValueError(msg)
         admin_user_ids = _parse_user_ids(os.environ.get("ADMIN_USER_IDS", ""))
         database_url = os.environ.get(
             "DATABASE_URL",
@@ -113,6 +123,7 @@ class Settings:
             short_review_interval_minutes=short_review_interval_minutes,
             admin_user_ids=admin_user_ids,
             wordbank_path=wordbank_path,
+            native_lang=native_lang,
             webapp_url=webapp_url,
             webapp_api_host=webapp_api_host,
             webapp_api_port=webapp_api_port,

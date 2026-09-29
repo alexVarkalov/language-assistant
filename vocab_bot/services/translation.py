@@ -8,6 +8,7 @@ import httpx
 from vocab_bot.config import Settings
 from vocab_bot.persistence import PendingTranslation
 from vocab_bot.repositories import CardRepository, PendingRepository
+from vocab_bot.services.orientation import canonical_sides
 from vocab_bot.translate import translate_text_options
 
 
@@ -53,12 +54,21 @@ class TranslationService:
             return None
         selected_target = _select_target(pending, option_index)
         first_review = _now() + timedelta(minutes=self._settings.short_review_interval_minutes)
-        await self._card_repo.upsert(
-            user_id=pending.user_id,
+        # Store the card native-side-first regardless of which language the user typed, so saving a
+        # word from either direction updates one card instead of creating a mirrored second one.
+        sides = canonical_sides(
             source_lang=pending.source_lang,
             target_lang=pending.target_lang,
             source_text=pending.source_text,
             target_text=selected_target,
+            native_lang=self._settings.native_lang,
+        )
+        await self._card_repo.upsert(
+            user_id=pending.user_id,
+            source_lang=sides.source_lang,
+            target_lang=sides.target_lang,
+            source_text=sides.source_text,
+            target_text=sides.target_text,
             ease_factor=2.5,
             interval_days=0.0,
             repetition=0,

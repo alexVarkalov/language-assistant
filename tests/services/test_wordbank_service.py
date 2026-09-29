@@ -9,7 +9,7 @@ from vocab_bot.services.wordbank import WordbankService
 from vocab_bot.wordbank import Section, Topic, WordEntry
 
 
-def _settings(source_lang: str = "RU", target_lang: str = "PL") -> Settings:
+def _settings(source_lang: str = "RU", target_lang: str = "PL", *, native_lang: str | None = None) -> Settings:
     return Settings(
         bot_token="token",
         deepl_api_key="key",
@@ -22,6 +22,7 @@ def _settings(source_lang: str = "RU", target_lang: str = "PL") -> Settings:
         short_review_interval_minutes=10,
         admin_user_ids=frozenset(),
         wordbank_path="data/ru_pl_dictionary.json",
+        native_lang=native_lang,
     )
 
 
@@ -109,3 +110,18 @@ async def test_add_topic_words_skips_all_for_unrelated_pair() -> None:
     assert result.added == 0
     assert result.skipped == 2
     card_repo.insert_if_missing.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_add_topic_words_stores_cards_native_side_first() -> None:
+    card_repo = AsyncMock()
+    card_repo.insert_if_missing.return_value = True
+    # A deployment configured PL->RU still files the cards RU-first, matching the chat save path.
+    settings = _settings(source_lang="PL", target_lang="RU", native_lang="RU")
+    service = WordbankService(_sections(), card_repo, settings)
+
+    await service.add_topic_words(user_id=1, topic_number=1)
+
+    kwargs = card_repo.insert_if_missing.await_args_list[0].kwargs
+    assert (kwargs["source_lang"], kwargs["source_text"]) == ("RU", "я")
+    assert (kwargs["target_lang"], kwargs["target_text"]) == ("PL", "ja")

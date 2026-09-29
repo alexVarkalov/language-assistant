@@ -9,6 +9,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from vocab_bot.persistence.models import CardRecord
 from vocab_bot.persistence.types import Card
 from vocab_bot.persistence.utils import to_card, utc_now
+from vocab_bot.translations import merge_translations
 
 
 class CardStore:
@@ -63,30 +64,34 @@ class CardStore:
                 awaiting_grade=False,  # legacy chat-review column, kept at its default
                 created_at=utc_now(),
             )
-            stmt = stmt.on_conflict_do_update(
+            # Insert first, so two saves of the same word can never race into two rows.
+            stmt = stmt.on_conflict_do_nothing(
                 index_elements=["user_id", "source_lang", "target_lang", "source_text"],
-                set_={
-                    "target_text": stmt.excluded.target_text,
-                    "ease_factor": stmt.excluded.ease_factor,
-                    "interval_days": stmt.excluded.interval_days,
-                    "repetition": stmt.excluded.repetition,
-                    "next_review_at": stmt.excluded.next_review_at,
-                },
-            )
-            session.execute(stmt)
-            card_id = session.scalar(
-                select(CardRecord.id).where(
+            ).returning(CardRecord.id)
+            inserted_id = session.scalar(stmt)
+            if inserted_id is not None:
+                session.commit()
+                return int(inserted_id)
+
+            # The word is already saved. It keeps the review schedule it earned; all this save can do
+            # is add a translation the card does not have yet (see vocab_bot/translations.py).
+            record = session.scalar(
+                select(CardRecord)
+                .where(
                     CardRecord.user_id == user_id,
                     CardRecord.source_lang == source_lang,
                     CardRecord.target_lang == target_lang,
                     CardRecord.source_text == source_text,
                 )
+                .with_for_update()
             )
-            session.commit()
-            if card_id is None:
+            if record is None:
                 msg = "failed to read card id after upsert"
                 raise RuntimeError(msg)
-            return int(card_id)
+            record.target_text = merge_translations(record.target_text, target_text)
+            card_id = int(record.id)
+            session.commit()
+            return card_id
 
     async def insert_card_if_missing(
         self,

@@ -9,8 +9,18 @@ from vocab_bot.persistence import Card
 from vocab_bot.repositories import CardRepository
 from vocab_bot.srs import SrsState, next_review_datetime
 
+# A direction names the side the user has to recall, so "source" prompts with the target text.
 Direction = Literal["source", "target"]
 DIRECTIONS: tuple[Direction, ...] = ("source", "target")
+
+# How a card is asked changes as the user learns it: first recognise the foreign word (prompt is
+# foreign, answer is the user's own language), then both ways at random, and finally produce the
+# foreign word from the native prompt, which is the harder direction.
+ReviewStage = Literal["recognition", "mixed", "production"]
+
+# Upper bounds on Card.repetition for the first two stages; anything above is "production".
+RECOGNITION_MAX_REPETITION = 2
+MIXED_MAX_REPETITION = 5
 
 
 def _now() -> datetime:
@@ -40,6 +50,34 @@ def pick_direction(rng: random.Random | None = None) -> Direction:
     return chooser(DIRECTIONS)
 
 
+def review_stage(repetition: int) -> ReviewStage:
+    """How well the user knows a card, from its successful-review streak."""
+    if repetition <= RECOGNITION_MAX_REPETITION:
+        return "recognition"
+    if repetition <= MIXED_MAX_REPETITION:
+        return "mixed"
+    return "production"
+
+
+def direction_for_card(card: Card, native_lang: str | None, rng: random.Random | None = None) -> Direction:
+    """
+    Pick which side of a card to ask for, based on how well the user knows it.
+
+    Without a native language (or on a card where neither side is it) there is no foreign/native
+    split to key on, so the direction stays random the way it always was.
+    """
+    stage = review_stage(card.repetition)
+    if stage == "mixed" or native_lang is None:
+        return pick_direction(rng)
+    native = native_lang.upper()
+    source_is_native = card.source_lang.upper() == native
+    if source_is_native == (card.target_lang.upper() == native):
+        return pick_direction(rng)
+    # Recognition asks for the native side, production asks for the foreign one.
+    answer_is_native = stage == "recognition"
+    return "source" if source_is_native == answer_is_native else "target"
+
+
 def build_due_card(card: Card, direction: Direction) -> DueCard:
     # "source" means the user must recall source_text, so the prompt shows the target side.
     if direction == "source":
@@ -67,10 +105,12 @@ class ReviewService:
         card_repo: CardRepository,
         *,
         short_interval_minutes: int = 10,
+        native_lang: str | None = None,
         rng: random.Random | None = None,
     ) -> None:
         self._card_repo = card_repo
         self._short_interval_minutes = max(1, short_interval_minutes)
+        self._native_lang = native_lang
         self._rng = rng
 
     async def get_card_for_user(self, *, card_id: int, user_id: int) -> Card | None:
@@ -107,7 +147,7 @@ class ReviewService:
         cards = await self._card_repo.list_due_for_user(user_id, limit=limit)
         if first_card_id is not None:
             cards.sort(key=lambda card: card.id != first_card_id)
-        return [build_due_card(card, pick_direction(self._rng)) for card in cards]
+        return [build_due_card(card, direction_for_card(card, self._native_lang, self._rng)) for card in cards]
 
     async def count_due_for_user(self, *, user_id: int) -> int:
         return await self._card_repo.count_due_for_user(user_id)

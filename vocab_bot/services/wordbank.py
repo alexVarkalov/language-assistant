@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 
 from vocab_bot.config import Settings
 from vocab_bot.repositories import CardRepository
+from vocab_bot.services.orientation import canonical_sides
 from vocab_bot.wordbank import Section, Topic, find_topic
 
 
@@ -45,12 +46,21 @@ class WordbankService:
         first_review = datetime.now(tz=UTC) + timedelta(minutes=self._settings.short_review_interval_minutes)
         added = 0
         for source_text, target_text in pairs:
-            inserted = await self._card_repo.insert_if_missing(
-                user_id=user_id,
+            # Same canonical orientation the chat save path uses, so a topic word and the same word
+            # typed by hand are one card.
+            sides = canonical_sides(
                 source_lang=self._settings.source_lang,
                 target_lang=self._settings.target_lang,
                 source_text=source_text,
                 target_text=target_text,
+                native_lang=self._settings.native_lang,
+            )
+            inserted = await self._card_repo.insert_if_missing(
+                user_id=user_id,
+                source_lang=sides.source_lang,
+                target_lang=sides.target_lang,
+                source_text=sides.source_text,
+                target_text=sides.target_text,
                 ease_factor=2.5,
                 interval_days=0.0,
                 repetition=0,

@@ -14,6 +14,7 @@ schedules reviews using an SM-2 style algorithm.
 - Background due-card polling with one consolidated "N cards to review" reminder per user, sent at fixed
   local times the user picks with `/reminders` (1, 2 or 3 times a day); reviews happen in the Mini App
 - Self-grading flow (`Again`, `Good`, `Easy`) in the Telegram Mini App
+- Review direction follows how well you know a card: recognise it first, produce it later
 - PostgreSQL persistence via SQLAlchemy ORM
 
 ## Tech stack
@@ -39,6 +40,7 @@ BOT_TOKEN=your_telegram_bot_token
 TRANSLATOR=deepl
 SOURCE_LANG=PL
 TARGET_LANG=RU
+NATIVE_LANG=RU
 DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/language_assistant
 DUE_POLL_INTERVAL=45
 SHORT_REVIEW_INTERVAL_MINUTES=10
@@ -64,6 +66,10 @@ Environment variables:
   Cyrillic-script language (e.g. `RU`) and the other Latin-script (e.g. `PL`) — the order between them
   doesn't matter. To support a different pair, run a separate deployment (new bot token, `.env`, database)
   rather than reconfiguring this one.
+- `NATIVE_LANG` (recommended): the learner's own language; must be one of `SOURCE_LANG`/`TARGET_LANG`.
+  It decides which side of a card each review shows — see [Review direction](#review-direction).
+  Unset, every review picks a side at random. There is no default because which of the two languages is
+  the learner's differs per deployment.
 - `DATABASE_URL` (optional): PostgreSQL SQLAlchemy URL. Default: `postgresql+psycopg://postgres:postgres@localhost:5432/language_assistant`.
 - `DUE_POLL_INTERVAL` (optional): polling interval in seconds (minimum 15). Default: `45`.
 - `SHORT_REVIEW_INTERVAL_MINUTES` (optional): short review delay in minutes used for first review and resets after `Again` (minimum 1). Default: `10`.
@@ -133,6 +139,60 @@ are no passwords or sessions; access follows the same allow/block list as the ch
 is the public `https://` URL where the frontend is served; the bot uses it for the Menu Button and the "Open
 in app" button on review reminders. Design, API contract, implementation plan and VPS deployment guide:
 [`docs/miniapp/`](docs/miniapp/README.md).
+
+### Review direction
+
+Which side of a card a review shows is not a coin flip — it follows how well you know the word, so the
+easier direction comes first and the harder one only once the word has stuck. `NATIVE_LANG` says which of
+the two languages is yours; the other one is the language you are learning.
+
+| Card's `repetition` | Stage | Prompt | You recall |
+|---|---|---|---|
+| 0–2 | recognition | the foreign word | your own language |
+| 3–5 | mixed | random side | the other side |
+| 6+ | production | your own language | the foreign word |
+
+`repetition` is the card's streak of successful reviews (it comes from the SM-2 state and resets to 0 on
+`Again`), so a word you lapse on drops back to recognition until you rebuild the streak. Without
+`NATIVE_LANG`, or on a card where neither side is the native language, the direction stays random at every
+stage — that is the pre-`NATIVE_LANG` behaviour. The thresholds live in `vocab_bot/services/reviews.py`
+(`RECOGNITION_MAX_REPETITION`, `MIXED_MAX_REPETITION`).
+
+#### One card per word, whichever language you type
+
+Cards are keyed by `(user_id, source_lang, target_lang, source_text)`, and the side a word landed on used
+to depend on the language you happened to type — so `dom` and `дом` became two separate cards for the same
+word, each with its own review schedule. With `NATIVE_LANG` set, every card is stored native-language-first
+(`canonical_sides()` in `vocab_bot/services/orientation.py`), so both typing directions and the wordbank
+land on one card.
+
+A word can of course have several translations, so the target side of a card is a short list rather than a
+single string (`vocab_bot/translations.py`). Saving a word you already have never overwrites it: the card
+keeps the review progress it earned, and the new translation is appended only if the card doesn't already
+have it, up to `MAX_TRANSLATIONS` (4).
+
+```
+wordbank adds:  тапочки → kapcie (l.mn.)
+you save:       тапочки → pantofle        ⇒  тапочки → kapcie (l.mn.); pantofle
+you save:       тапочки → kapcie          ⇒  unchanged — same word, and the noted form is kept
+```
+
+Matching ignores case and parenthesised grammar notes, so a hand-typed `kapcie` never strips the
+wordbank's `(l.mn.)`. The wordbank itself only ever inserts words you don't have; it leaves existing cards
+untouched.
+
+Cards saved before this change still sit whichever way round they were typed. Reviews are unaffected
+(direction is computed from `NATIVE_LANG`, not from the stored side), but the duplicates linger until you
+run the one-off migration:
+
+```bash
+uv run python -m scripts.canonicalize_card_orientation           # dry run: prints the plan, writes nothing
+uv run python -m scripts.canonicalize_card_orientation --apply   # after a pg_dump, with the services stopped
+```
+
+It flips lone cards in place (same row, same progress), and where a mirrored pair exists it merges them:
+the better-learned schedule wins, the sooner review date survives, and both translations are kept on the
+surviving card.
 
 ## User access management
 
@@ -235,6 +295,7 @@ DEEPL_PLAN=free
 
 SOURCE_LANG=PL
 TARGET_LANG=RU
+NATIVE_LANG=RU
 
 DATABASE_URL=postgresql+psycopg://langbot:change_me_strong_password@localhost:5432/language_assistant
 DUE_POLL_INTERVAL=45
@@ -413,6 +474,7 @@ git commit
 - `vocab_bot/lang_detect.py`: script-based (Cyrillic vs Latin) direction auto-detection
 - `vocab_bot/wordbank.py`: topic-dictionary data model and loader (see "Wordbank" above)
 - `vocab_bot/srs.py`: SM-2 style scheduling logic
+- `vocab_bot/translations.py`: folding several translations of one word onto a single card
 - `vocab_bot/db.py`: database facade and lifecycle
 - `vocab_bot/services/notifications.py`: who gets the consolidated "cards to review" reminder and when
 - `vocab_bot/webapi/`: FastAPI backend of the Mini App (separate process, `initData` auth)
@@ -420,4 +482,6 @@ git commit
 - `docs/miniapp/`: Mini App design, API contract, implementation plan and the VPS deployment guide
 - `docs/new-bot-playbook.md`: reusable recipe (stack, layer rules, conventions, testing, deployment, bootstrap checklist)
   for starting another Telegram bot from this project
+- `scripts/canonicalize_card_orientation.py`: one-off migration that stores existing cards
+  native-language-first and merges mirrored duplicates (see [Review direction](#review-direction))
 - `scripts/parse_ru_pl_dictionary.py`: dev-only tool that regenerates the wordbank JSON from the source PDF

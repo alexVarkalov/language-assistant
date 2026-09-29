@@ -11,7 +11,7 @@ from vocab_bot.services import translation as translation_module
 from vocab_bot.services.translation import TranslationService, _select_target
 
 
-def _settings() -> Settings:
+def _settings(*, native_lang: str | None = None) -> Settings:
     return Settings(
         bot_token="token",
         deepl_api_key="key",
@@ -24,6 +24,7 @@ def _settings() -> Settings:
         short_review_interval_minutes=10,
         admin_user_ids=frozenset(),
         wordbank_path=None,
+        native_lang=native_lang,
     )
 
 
@@ -102,3 +103,61 @@ def test_select_target_fallbacks() -> None:
     assert _select_target(pending, None) == "privet"
     assert _select_target(pending, -1) == "privet"
     assert _select_target(pending, 100) == "privet"
+
+
+def _pending(source_lang: str, target_lang: str, source_text: str, target_text: str) -> PendingTranslation:
+    return PendingTranslation(
+        id="p1",
+        user_id=7,
+        source_lang=source_lang,
+        target_lang=target_lang,
+        source_text=source_text,
+        target_text=target_text,
+        target_options=(target_text,),
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("source_lang", "target_lang", "typed", "translation"),
+    [("PL", "RU", "dom", "дом"), ("RU", "PL", "дом", "dom")],
+)
+async def test_saving_stores_the_card_native_side_first(
+    source_lang: str, target_lang: str, typed: str, translation: str
+) -> None:
+    pending_repo = AsyncMock()
+    pending_repo.get.return_value = _pending(source_lang, target_lang, typed, translation)
+    card_repo = AsyncMock()
+    service = TranslationService(_settings(native_lang="RU"), pending_repo, card_repo)
+
+    await service.save_pending_as_card(pending_id="p1", user_id=7)
+
+    kwargs = card_repo.upsert.await_args.kwargs
+    # Whichever language was typed, the word lands on one and the same card.
+    assert (kwargs["source_lang"], kwargs["source_text"]) == ("RU", "дом")
+    assert (kwargs["target_lang"], kwargs["target_text"]) == ("PL", "dom")
+
+
+@pytest.mark.asyncio
+async def test_saving_reports_the_translation_the_way_the_user_typed_it() -> None:
+    pending_repo = AsyncMock()
+    pending_repo.get.return_value = _pending("PL", "RU", "dom", "дом")
+    service = TranslationService(_settings(native_lang="RU"), pending_repo, AsyncMock())
+
+    saved = await service.save_pending_as_card(pending_id="p1", user_id=7)
+
+    assert saved is not None
+    assert (saved.source_text, saved.target_text) == ("dom", "дом")
+
+
+@pytest.mark.asyncio
+async def test_saving_keeps_the_typed_sides_without_a_native_language() -> None:
+    pending_repo = AsyncMock()
+    pending_repo.get.return_value = _pending("PL", "RU", "dom", "дом")
+    card_repo = AsyncMock()
+    service = TranslationService(_settings(), pending_repo, card_repo)
+
+    await service.save_pending_as_card(pending_id="p1", user_id=7)
+
+    kwargs = card_repo.upsert.await_args.kwargs
+    assert (kwargs["source_lang"], kwargs["source_text"]) == ("PL", "dom")

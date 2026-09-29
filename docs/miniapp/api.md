@@ -75,8 +75,10 @@ reminder opens the app root, but still supported).
 ```
 
 - `direction` — `"source"` means the prompt is `target_text` and the user recalls `source_text`;
-  `"target"` is the reverse. Chosen server-side per response; the same card may get a different direction
-  next time, matching the chat behaviour.
+  `"target"` is the reverse. Chosen server-side per response from the card's `repetition` and the
+  deployment's `NATIVE_LANG`: new cards prompt with the foreign word, well-known cards prompt with the
+  native word, and in between the side is random, so the same card may get a different direction next
+  time (README → "Review direction").
 - The answer is sent up-front on purpose: reviews are self-graded, and it avoids a round-trip on flip.
 - `total_due` may exceed `len(cards)` when capped by `limit`.
 

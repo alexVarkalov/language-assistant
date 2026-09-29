@@ -47,6 +47,7 @@ async def _post_init(application: Application) -> None:
     application.bot_data["review_service"] = ReviewService(
         card_repo,
         short_interval_minutes=settings.short_review_interval_minutes,
+        native_lang=settings.native_lang,
     )
     if settings.wordbank_path is not None:
         sections = load_wordbank(settings.wordbank_path)

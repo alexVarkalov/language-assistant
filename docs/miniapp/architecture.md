@@ -91,9 +91,11 @@ open app ──► GET /api/me ──► GET /api/reviews/queue
 
 - The queue is fetched **once** on open (up to `limit`, default 50) and drained client-side; each grade is a
   separate `POST`. No polling.
-- Direction (which side is the prompt) is chosen **server-side** per card, matching the existing chat
-  behaviour (`random.choice(["source", "target"])` in `due_poll`). The queue response carries
-  `prompt_text`/`answer_text` already resolved so the client has no language logic.
+- Direction (which side is the prompt) is chosen **server-side** per card by
+  `ReviewService`/`direction_for_card()`, from the card's `repetition` and `NATIVE_LANG`: a new card prompts
+  with the foreign word, a mid-stage one is random, a well-known one prompts with the native word (see
+  "Review direction" in the README). The queue response carries `prompt_text`/`answer_text` already
+  resolved so the client has no language logic.
 - Grades reuse `ReviewService.apply_grade(card_id, user_id, quality)` — same SM-2 path as `grade:` callbacks.
   Quality values are the same three the chat uses: `0` Again, `3` Good, `5` Easy.
 

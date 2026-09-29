@@ -147,6 +147,10 @@ DEEPL_PLAN=free
 TRANSLATOR=deepl
 SOURCE_LANG=PL
 TARGET_LANG=RU
+NATIVE_LANG=RU                                # the learner's language (one of the two above); drives review direction
+                                              # first deploy with NATIVE_LANG: run
+                                              # `python -m scripts.canonicalize_card_orientation`
+                                              # (dry run, then --apply) to dedupe mirrored cards
 DATABASE_URL=postgresql+psycopg://langbot:change_me_strong_password@localhost:5432/language_assistant
 DUE_POLL_INTERVAL=45
 SHORT_REVIEW_INTERVAL_MINUTES=10
@@ -406,7 +410,7 @@ Convention used for the RU↔EN instance next to the RU↔PL one:
 | nginx site / root | `sites-available/vocab`, `/var/www/vocab` | `sites-available/vocab-ru-en`, `/var/www/vocab-ru-en` |
 
 Steps are sections 2–6 again with those names: `CREATE DATABASE ... OWNER langbot`, a second `git clone` +
-`uv sync`, its own `.env` (different `BOT_TOKEN`, `SOURCE_LANG`/`TARGET_LANG`, `DATABASE_URL`, `WEBAPP_URL`,
+`uv sync`, its own `.env` (different `BOT_TOKEN`, `SOURCE_LANG`/`TARGET_LANG`/`NATIVE_LANG`, `DATABASE_URL`, `WEBAPP_URL`,
 `WEBAPP_API_PORT`), two more systemd units pointing at the second checkout, a second nginx `server` block
 that proxies `/api/` to the second port and reuses `snippets/vocab-headers.conf` and the shared `limit_req`
 zone, `certbot --nginx -d <second hostname>`, and the same `webapp/dist` rsynced to the second root (the

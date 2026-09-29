@@ -26,6 +26,7 @@ def create_app(settings: Settings, *, db: Database | None = None) -> FastAPI:
         app.state.review_service = ReviewService(
             CardRepository(database),
             short_interval_minutes=settings.short_review_interval_minutes,
+            native_lang=settings.native_lang,
         )
         yield
 
